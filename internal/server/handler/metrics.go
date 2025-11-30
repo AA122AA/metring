@@ -2,10 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
-	models "github.com/AA122AA/metring/internal/model"
+	models "github.com/AA122AA/metring/internal/server/model"
 )
 
 type Metrics interface {
@@ -13,15 +14,15 @@ type Metrics interface {
 	Get(string) (*models.Metrics, error)
 }
 
-type Handler struct {
+type MetricsHandler struct {
 	srv Metrics
 }
 
-func NewHandler(srv Metrics) *Handler {
-	return &Handler{srv: srv}
+func NewMetricsHandler(srv Metrics) *MetricsHandler {
+	return &MetricsHandler{srv: srv}
 }
 
-func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
+func (h MetricsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	mName := r.PathValue("mName")
 	m, err := h.srv.Get(mName)
 	if err != nil {
@@ -42,7 +43,7 @@ func (h Handler) Get(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsondata)
 }
 
-func (h Handler) Update(w http.ResponseWriter, r *http.Request) {
+func (h MetricsHandler) Update(w http.ResponseWriter, r *http.Request) {
 	mType := r.PathValue("mType")
 	mName := r.PathValue("mName")
 	value := r.PathValue("value")
@@ -50,6 +51,8 @@ func (h Handler) Update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "имя метрики не указано", http.StatusNotFound)
 		return
 	}
+
+	fmt.Printf("got new metric - %v, value - %v\n", mName, value)
 
 	err := h.srv.Update(mName, mType, value)
 	if err != nil {

@@ -4,9 +4,9 @@ package main
 import (
 	"net/http"
 
-	"github.com/AA122AA/metring/internal/handler"
-	"github.com/AA122AA/metring/internal/repository"
-	"github.com/AA122AA/metring/internal/service"
+	"github.com/AA122AA/metring/internal/server/handler"
+	"github.com/AA122AA/metring/internal/server/repository"
+	"github.com/AA122AA/metring/internal/server/service"
 )
 
 // функция main вызывается автоматически при запуске приложения
@@ -20,8 +20,10 @@ func main() {
 func run() error {
 	repo := repository.NewMemStorage()
 	srv := service.NewMetrics(repo)
-	h := handler.NewHandler(srv)
+	h := handler.NewMetricsHandler(srv)
 
+	// Question: Нужно ли выносить создание роутера в отдельную функцию, если речь
+	// о приложения бОльшего масштаба?
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /update/{mType}/{mName}/{value}", h.Update)
 	mux.HandleFunc("GET /get/{mName}", h.Get)

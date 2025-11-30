@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	models "github.com/AA122AA/metring/internal/model"
-	"github.com/AA122AA/metring/internal/repository"
+	models "github.com/AA122AA/metring/internal/server/model"
+	"github.com/AA122AA/metring/internal/server/repository"
 )
 
 type Metrics struct {

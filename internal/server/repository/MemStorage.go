@@ -3,7 +3,7 @@ package repository
 import (
 	"fmt"
 
-	models "github.com/AA122AA/metring/internal/model"
+	models "github.com/AA122AA/metring/internal/server/model"
 )
 
 type MemStorage struct {

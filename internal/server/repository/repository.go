@@ -1,6 +1,6 @@
 package repository
 
-import models "github.com/AA122AA/metring/internal/model"
+import models "github.com/AA122AA/metring/internal/server/model"
 
 type MetricsRepository interface {
 	Get(string) (*models.Metrics, error)
