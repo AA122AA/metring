@@ -29,7 +29,7 @@ func TestSendUpdate_always_pass(t *testing.T) {
 			mm:    testMap,
 			cfg: &Config{
 				PollInterval:   2,
-				Url:            "http://localhost:8080",
+				URL:            "http://localhost:8080",
 				ReportInterval: 10,
 			},
 		},
@@ -51,7 +51,7 @@ func TestSendUpdate_always_pass(t *testing.T) {
 			srv := httptest.NewServer(mux)
 			defer srv.Close()
 
-			tCase.cfg.Url = srv.URL
+			tCase.cfg.URL = srv.URL
 
 			ma := NewMetricAgent(tCase.cfg)
 			mc := NewMetricClient(ma, tCase.cfg)

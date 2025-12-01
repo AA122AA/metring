@@ -8,7 +8,7 @@ import (
 
 type Config struct {
 	PollInterval   int    `json:"pollInterval" yaml:"pollInterval" default:"2" validate:"required"`
-	Url            string `json:"url" yaml:"url" default:"http://localhost:8080" validate:"required"`
+	URL            string `json:"url" yaml:"url" default:"http://localhost:8080" validate:"required"`
 	ReportInterval int    `json:"reportInterval" yaml:"reportInterval" default:"10" validate:"required"`
 }
 
@@ -16,7 +16,7 @@ func Read(path string) (*Config, error) {
 	if path == "" {
 		return &Config{
 			PollInterval:   2,
-			Url:            "http://localhost:8080",
+			URL:            "http://localhost:8080",
 			ReportInterval: 10,
 		}, nil
 	}

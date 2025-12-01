@@ -11,7 +11,7 @@ import (
 
 type MetricClient struct {
 	reportInterval int
-	baseUrl        string
+	baseURL        string
 
 	client *http.Client
 	agent  *MetricAgent
@@ -20,7 +20,7 @@ type MetricClient struct {
 func NewMetricClient(mAgent *MetricAgent, cfg *Config) *MetricClient {
 	return &MetricClient{
 		reportInterval: cfg.ReportInterval,
-		baseUrl:        cfg.Url,
+		baseURL:        cfg.URL,
 		client: &http.Client{
 			Timeout: 3 * time.Second,
 		},
@@ -44,7 +44,7 @@ func (mc *MetricClient) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 func (mc *MetricClient) SendUpdate(mm map[string]*Metric) {
 	for k, v := range mm {
-		u, err := url.JoinPath(mc.baseUrl, "update", v.MType, k, v.Value)
+		u, err := url.JoinPath(mc.baseURL, "update", v.MType, k, v.Value)
 		if err != nil {
 			fmt.Printf("error creating url, got - %v\n", u)
 			continue
@@ -62,6 +62,7 @@ func (mc *MetricClient) SendUpdate(mm map[string]*Metric) {
 			fmt.Printf("error doing request to - %v\n", req.URL.String())
 			continue
 		}
+		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			fmt.Printf("err - %v\n", resp.Status)
