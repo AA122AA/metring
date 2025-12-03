@@ -26,22 +26,27 @@ func (mr *mockRepo) GetAll() (map[string]*models.Metrics, error) {
 func (mr *mockRepo) Get(name string) (*models.Metrics, error) {
 	switch name {
 	case "counter":
+		fmt.Printf("Got name - %v\n", name)
 		v := int64(2)
 		return &models.Metrics{
 			MType: models.Counter,
 			Delta: &v,
 		}, nil
 	case "data":
+		fmt.Printf("Got name - %v\n", name)
 		return nil, fmt.Errorf("data not found")
 	case "error":
+		fmt.Printf("Got name - %v\n", name)
 		return nil, fmt.Errorf("some error")
 	case "gauge":
+		fmt.Printf("Got name - %v\n", name)
 		v := float64(1.25)
 		return &models.Metrics{
 			MType: models.Gauge,
 			Value: &v,
 		}, nil
 	default:
+		fmt.Printf("Got name - %v\n", name)
 		return &models.Metrics{}, nil
 	}
 }

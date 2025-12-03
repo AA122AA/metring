@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,30 +10,46 @@ import (
 
 	"github.com/AA122AA/metring/internal/server/repository"
 	"github.com/AA122AA/metring/internal/server/service"
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGet(t *testing.T) {
 	cases := []struct {
-		name  string
-		mName string
-		url   string
-		pass  bool
-		want  string
+		name   string
+		mName  string
+		mType  string
+		url    string
+		status int
+		pass   bool
+		want   string
 	}{
 		{
-			name:  "Positive",
-			mName: "gauge",
-			url:   "/get/gauge",
-			pass:  true,
-			want:  `{"id":"","type":"gauge","value":1.25}`,
+			name:   "Positive",
+			mName:  "gauge",
+			mType:  "gauge",
+			url:    "/value/gauge/gauge",
+			status: http.StatusOK,
+			pass:   true,
+			want:   "\"1.250000\"",
 		},
 		{
-			name:  "Negative, not found",
-			mName: "data",
-			url:   "/get/data",
-			pass:  false,
-			want:  `Что-то пошло не так`,
+			name:   "Negative, wrong type",
+			mName:  "Alloc",
+			mType:  "data",
+			url:    "/value/data/Alloc",
+			status: http.StatusNotFound,
+			pass:   false,
+			want:   `No metric with this type`,
+		},
+		{
+			name:   "Negative, wrong name",
+			mName:  "data",
+			mType:  "counter",
+			url:    "/value/counter/data",
+			status: http.StatusNotFound,
+			pass:   false,
+			want:   `No metric with this name`,
 		},
 	}
 
@@ -42,8 +59,13 @@ func TestGet(t *testing.T) {
 			srv := service.NewMetrics(repo)
 			h := NewMetricsHandler(srv)
 
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("mName", tCase.mName)
+			rctx.URLParams.Add("mType", tCase.mType)
+
 			r := httptest.NewRequest(http.MethodGet, tCase.url, nil)
-			r.SetPathValue("mName", tCase.mName)
+			r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
+
 			rec := httptest.NewRecorder()
 			h.Get(rec, r)
 
@@ -58,7 +80,7 @@ func TestGet(t *testing.T) {
 				require.Equal(t, res.StatusCode, http.StatusOK)
 				return
 			}
-			require.Equal(t, res.StatusCode, http.StatusInternalServerError)
+			require.Equal(t, tCase.status, res.StatusCode)
 		})
 	}
 }

@@ -22,8 +22,24 @@ func (m *Metrics) GetAll() (map[string]*models.Metrics, error) {
 	return m.repo.GetAll()
 }
 
-func (m *Metrics) Get(mName string) (*models.Metrics, error) {
-	return m.repo.Get(mName)
+func (m *Metrics) Get(mType, mName string) (string, error) {
+	metric, err := m.repo.Get(mName)
+	if err != nil {
+		return "", fmt.Errorf("err from repo: %w", err)
+	}
+	if mType != metric.MType {
+		return "", fmt.Errorf("wrong metric type")
+	}
+
+	var res string
+	switch metric.MType {
+	case models.Gauge:
+		res = fmt.Sprintf("%g", *metric.Value)
+	case models.Counter:
+		res = fmt.Sprintf("%d", *metric.Delta)
+	}
+
+	return res, nil
 }
 
 func (m *Metrics) Update(mName, mType, value string) error {
