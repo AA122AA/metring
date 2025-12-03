@@ -1,0 +1,3 @@
+pollInterval: 2
+url: "http://localhost:8080"
+reportInterval: 10
