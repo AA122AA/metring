@@ -81,8 +81,6 @@ func TestParse(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	v1 := float64(1.25)
-	v2 := int64(2)
 	cases := []struct {
 		name  string
 		mName string
@@ -90,7 +88,7 @@ func TestUpdate(t *testing.T) {
 		value string
 		pass  bool
 		repo  repository.MetricsRepository
-		want  *models.Metrics
+		want  string
 	}{
 		{
 			name:  "Positive Gauge",
@@ -99,10 +97,7 @@ func TestUpdate(t *testing.T) {
 			value: "1.25",
 			pass:  true,
 			repo:  repository.NewMockRepo(),
-			want: &models.Metrics{
-				MType: models.Gauge,
-				Value: &v1,
-			},
+			want:  "1.25",
 		},
 		{
 			name:  "Positive Counter",
@@ -111,10 +106,7 @@ func TestUpdate(t *testing.T) {
 			value: "1",
 			pass:  true,
 			repo:  repository.NewMemStorage(),
-			want: &models.Metrics{
-				MType: models.Counter,
-				Delta: &v2,
-			},
+			want:  "2",
 		},
 		{
 			name:  "Positive Counter 2",
@@ -169,8 +161,8 @@ func TestUpdate(t *testing.T) {
 
 			require.NoError(t, err)
 
-			if tCase.want != nil {
-				got, err := m.Get(tCase.mName)
+			if tCase.want != "" {
+				got, err := m.Get(tCase.mType, tCase.mName)
 				require.NoError(t, err)
 				require.Equal(t, tCase.want, got)
 			}

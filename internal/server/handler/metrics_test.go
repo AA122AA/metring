@@ -31,7 +31,7 @@ func TestGet(t *testing.T) {
 			url:    "/value/gauge/gauge",
 			status: http.StatusOK,
 			pass:   true,
-			want:   "\"1.250000\"",
+			want:   "1.25",
 		},
 		{
 			name:   "Negative, wrong type",
