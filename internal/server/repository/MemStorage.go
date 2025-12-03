@@ -16,6 +16,13 @@ func NewMemStorage() *MemStorage {
 	}
 }
 
+func (ms *MemStorage) GetAll() (map[string]*models.Metrics, error) {
+	if len(ms.Values) != 0 {
+		return ms.Values, nil
+	}
+	return nil, fmt.Errorf("no metrics")
+}
+
 func (ms *MemStorage) Get(name string) (*models.Metrics, error) {
 	if v, ok := ms.Values[name]; ok {
 		return v, nil

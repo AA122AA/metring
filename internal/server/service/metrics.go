@@ -18,6 +18,10 @@ func NewMetrics(r repository.MetricsRepository) *Metrics {
 	}
 }
 
+func (m *Metrics) GetAll() (map[string]*models.Metrics, error) {
+	return m.repo.GetAll()
+}
+
 func (m *Metrics) Get(mName string) (*models.Metrics, error) {
 	return m.repo.Get(mName)
 }

@@ -12,6 +12,17 @@ func NewMockRepo() *mockRepo {
 	return &mockRepo{}
 }
 
+func (mr *mockRepo) GetAll() (map[string]*models.Metrics, error) {
+	v := int64(1)
+	return map[string]*models.Metrics{
+		"Alloc": {
+			ID:    "1",
+			MType: models.Counter,
+			Delta: &v,
+		},
+	}, nil
+}
+
 func (mr *mockRepo) Get(name string) (*models.Metrics, error) {
 	switch name {
 	case "counter":

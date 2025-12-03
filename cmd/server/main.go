@@ -7,6 +7,7 @@ import (
 	"github.com/AA122AA/metring/internal/server/handler"
 	"github.com/AA122AA/metring/internal/server/repository"
 	"github.com/AA122AA/metring/internal/server/service"
+	"github.com/go-chi/chi/v5"
 )
 
 // функция main вызывается автоматически при запуске приложения
@@ -24,14 +25,15 @@ func run() error {
 
 	// Question: Нужно ли выносить создание роутера в отдельную функцию, если речь
 	// о приложения бОльшего масштаба?
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /update/{mType}/{mName}/{value}", h.Update)
-	mux.HandleFunc("GET /get/{mName}", h.Get)
+	router := chi.NewRouter()
+	router.Get("/", h.All)
+	router.Get("/value/{mType}/{mName}", h.Get)
+	router.Post("/update/{mType}/{mName}/{value}", h.Update)
 
 	// TODO: add config file
 	server := http.Server{
 		Addr:    ":8080",
-		Handler: mux,
+		Handler: router,
 	}
 
 	return server.ListenAndServe()

@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 
@@ -12,6 +13,7 @@ import (
 type Metrics interface {
 	Update(string, string, string) error
 	Get(string) (*models.Metrics, error)
+	GetAll() (map[string]*models.Metrics, error)
 }
 
 type MetricsHandler struct {
@@ -20,6 +22,23 @@ type MetricsHandler struct {
 
 func NewMetricsHandler(srv Metrics) *MetricsHandler {
 	return &MetricsHandler{srv: srv}
+}
+
+func (h MetricsHandler) All(w http.ResponseWriter, r *http.Request) {
+	templates := template.Must(template.ParseGlob("/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html"))
+
+	metrics, err := h.srv.GetAll()
+	if err != nil {
+		http.Error(w, "no data", http.StatusNotFound)
+		return
+	}
+	data := struct {
+		Metrics map[string]*models.Metrics
+	}{
+		Metrics: metrics,
+	}
+
+	templates.ExecuteTemplate(w, "metrics.html", data)
 }
 
 func (h MetricsHandler) Get(w http.ResponseWriter, r *http.Request) {
