@@ -24,3 +24,13 @@ autotest-3:
 	-source-path=. \
 	-agent-binary-path=cmd/agent/agent \
 	-binary-path=cmd/server/server
+
+autotest-4:
+	@export SERVER_PORT="8080"
+    # @export ADDRESS="localhost:$${SERVER_PORT}"
+    # @export TEMP_FILE="lol"
+	./metricstest_v2 -test.v -test.run=^TestIteration4$$ \
+	-agent-binary-path=cmd/server/server \
+	-binary-path=cmd/server/serve \
+	-server-port=8080 \
+	-source-path=.

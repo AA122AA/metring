@@ -23,6 +23,8 @@ func main() {
 		return
 	}
 
+	cfg.ParseFlags()
+
 	var wg sync.WaitGroup
 
 	mAgent := agent.NewMetricAgent(cfg)
