@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
+	"strings"
 	"sync"
 	"time"
 )
@@ -22,7 +24,7 @@ func NewMetricClient(mAgent *MetricAgent, cfg *Config) *MetricClient {
 		reportInterval: cfg.ReportInterval,
 		baseURL:        cfg.URL,
 		client: &http.Client{
-			Timeout: 3 * time.Second,
+			Timeout: 8 * time.Second,
 		},
 		agent: mAgent,
 	}
@@ -44,22 +46,19 @@ func (mc *MetricClient) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 func (mc *MetricClient) SendUpdate(mm map[string]*Metric) {
 	for k, v := range mm {
-		u, err := url.JoinPath(mc.baseURL, "update", v.MType, k, v.Value)
-		if err != nil {
-			fmt.Printf("error creating url, got - %v\n", u)
-			continue
-		}
 
-		req, err := http.NewRequest(http.MethodPost, u, nil)
+		u := buildURL(mc.baseURL, "update", v.MType, k, v.Value)
+
+		req, err := http.NewRequest(http.MethodPost, u.String(), nil)
 		if err != nil {
-			fmt.Printf("error making new request\n")
+			fmt.Printf("error making new request: %v\n", err)
 			continue
 		}
 		req.Header.Set("Content-Type", "text/plain")
 
 		resp, err := mc.client.Do(req)
 		if err != nil {
-			fmt.Printf("error doing request to - %v\n", req.URL.String())
+			fmt.Printf("error doing request to - %v, error: %v\n", req.URL.String(), err)
 			continue
 		}
 		defer resp.Body.Close()
@@ -70,4 +69,18 @@ func (mc *MetricClient) SendUpdate(mm map[string]*Metric) {
 		}
 		fmt.Println("sent update")
 	}
+}
+
+func buildURL(base string, values ...string) *url.URL {
+	if !strings.HasPrefix(base, "http://") {
+		base = "http://" + base
+	}
+
+	u, err := url.Parse(base)
+	if err != nil {
+		fmt.Printf("error while building url: %v\n", err)
+	}
+	fullPath := path.Join(values...)
+	u.Path = path.Join(u.Path, fullPath)
+	return u
 }

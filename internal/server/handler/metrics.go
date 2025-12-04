@@ -57,12 +57,12 @@ func (h MetricsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err.Error() == "err from repo: data not found" {
 			http.Error(w, "No metric with this name", http.StatusNotFound)
-			log.Printf("got error - %v", err)
+			log.Printf("no metric with name %v, error : %v", mName, err)
 			return
 		}
 		if err.Error() == "wrong metric type" {
 			http.Error(w, "No metric with this type", http.StatusNotFound)
-			log.Printf("got error - %v", err)
+			log.Printf("no metric with this type %v, error: %v", mType, err)
 			return
 		}
 		http.Error(w, "Что-то пошло не так", http.StatusInternalServerError)
@@ -70,6 +70,7 @@ func (h MetricsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("give metric with name %v", mName)
 	w.Header().Set("Content-type", "http/text")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(m))
@@ -84,13 +85,13 @@ func (h MetricsHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("got new metric - %v, value - %v\n", mName, value)
-
 	err := h.srv.Update(mName, mType, value)
 	if err != nil {
 		http.Error(w, "тип или значение некорректно", http.StatusBadRequest)
 		return
 	}
+
+	fmt.Printf("got new metric - %v, value - %v\n", mName, value)
 
 	w.WriteHeader(http.StatusOK)
 }
