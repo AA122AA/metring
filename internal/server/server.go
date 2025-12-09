@@ -1,7 +1,7 @@
 package server
 
 import (
-	"fmt"
+	"context"
 	"net/http"
 
 	"github.com/AA122AA/metring/internal/server/config"
@@ -9,30 +9,34 @@ import (
 	"github.com/AA122AA/metring/internal/server/repository"
 	"github.com/AA122AA/metring/internal/server/service"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-faster/sdk/zctx"
+	"go.uber.org/zap"
 )
 
 type Server struct {
 	srv *http.Server
+	lg  *zap.Logger
 }
 
-func NewServer(cfg *config.Config) *Server {
+func NewServer(ctx context.Context, cfg *config.Config) *Server {
 	return &Server{
 		srv: &http.Server{
 			Addr:    cfg.HostAddr,
-			Handler: router(),
+			Handler: router(ctx, cfg.TemplatePath),
 		},
+		lg: zctx.From(ctx).Named("server"),
 	}
 }
 
 func (s *Server) Run() error {
-	fmt.Printf("Start server on %v\n", s.srv.Addr)
+	s.lg.Info("Start server on %v\n", zap.String("addr", s.srv.Addr))
 	return s.srv.ListenAndServe()
 }
 
-func router() *chi.Mux {
+func router(ctx context.Context, tPath string) *chi.Mux {
 	repo := repository.NewMemStorage()
-	srv := service.NewMetrics(repo)
-	h := handler.NewMetricsHandler(srv)
+	srv := service.NewMetrics(ctx, repo)
+	h := handler.NewMetricsHandler(ctx, tPath, srv)
 
 	router := chi.NewRouter()
 	router.Get("/", h.All)

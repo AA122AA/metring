@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 
 	models "github.com/AA122AA/metring/internal/server/model"
@@ -81,6 +82,7 @@ func TestParse(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
+	ctx := context.Background()
 	cases := []struct {
 		name  string
 		mName string
@@ -92,7 +94,7 @@ func TestUpdate(t *testing.T) {
 	}{
 		{
 			name:  "Positive Gauge",
-			mName: "gauge",
+			mName: repository.Alloc,
 			mType: models.Gauge,
 			value: "1.25",
 			pass:  true,
@@ -101,16 +103,16 @@ func TestUpdate(t *testing.T) {
 		},
 		{
 			name:  "Positive Counter",
-			mName: "counter",
+			mName: repository.PollCount,
 			mType: models.Counter,
 			value: "1",
 			pass:  true,
 			repo:  repository.NewMemStorage(),
-			want:  "2",
+			want:  "1",
 		},
 		{
 			name:  "Positive Counter 2",
-			mName: "data",
+			mName: repository.NoData,
 			mType: models.Counter,
 			value: "1",
 			repo:  repository.NewMockRepo(),
@@ -118,7 +120,7 @@ func TestUpdate(t *testing.T) {
 		},
 		{
 			name:  "Negative repo",
-			mName: "error",
+			mName: repository.Error,
 			mType: models.Counter,
 			value: "1",
 			repo:  repository.NewMockRepo(),
@@ -126,7 +128,7 @@ func TestUpdate(t *testing.T) {
 		},
 		{
 			name:  "Negative, wrong value",
-			mName: "Alloc",
+			mName: repository.Alloc,
 			mType: models.Gauge,
 			value: "a",
 			repo:  repository.NewMockRepo(),
@@ -134,7 +136,7 @@ func TestUpdate(t *testing.T) {
 		},
 		{
 			name:  "Negative, wrong type",
-			mName: "Alloc",
+			mName: repository.Alloc,
 			mType: "lol",
 			value: "1",
 			repo:  repository.NewMockRepo(),
@@ -144,7 +146,7 @@ func TestUpdate(t *testing.T) {
 
 	for _, tCase := range cases {
 		t.Run(tCase.name, func(t *testing.T) {
-			if tCase.mName == "counter" {
+			if tCase.mName == repository.Counter {
 				v := int64(1)
 				tCase.repo.Write(tCase.mName, &models.Metrics{
 					MType: tCase.mType,
@@ -152,7 +154,7 @@ func TestUpdate(t *testing.T) {
 				})
 			}
 
-			m := NewMetrics(tCase.repo)
+			m := NewMetrics(ctx, tCase.repo)
 			err := m.Update(tCase.mName, tCase.mType, tCase.value)
 			if !tCase.pass {
 				require.Error(t, err)
@@ -166,6 +168,65 @@ func TestUpdate(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, tCase.want, got)
 			}
+		})
+	}
+}
+
+func TestGet(t *testing.T) {
+	ctx := context.Background()
+	cases := []struct {
+		name  string
+		repo  repository.MetricsRepository
+		mType string
+		mName string
+		pass  bool
+		want  string
+	}{
+		{
+			name:  "Positive Counter",
+			repo:  repository.NewMockRepo(),
+			mType: models.Counter,
+			mName: repository.PollCount,
+			pass:  true,
+			want:  "2",
+		},
+		{
+			name:  "Positive Gauge",
+			repo:  repository.NewMockRepo(),
+			mType: models.Gauge,
+			mName: repository.Alloc,
+			pass:  true,
+			want:  "1.25",
+		},
+		{
+			name:  "Negative NoData",
+			repo:  repository.NewMockRepo(),
+			mType: models.Gauge,
+			mName: repository.NoData,
+			pass:  false,
+			want:  "err from repo",
+		},
+		{
+			name:  "Negative wrong type",
+			repo:  repository.NewMockRepo(),
+			mType: models.Counter,
+			mName: repository.Alloc,
+			pass:  false,
+			want:  "wrong metric type",
+		},
+	}
+
+	for _, tCase := range cases {
+		t.Run(tCase.name, func(t *testing.T) {
+			srv := NewMetrics(ctx, tCase.repo)
+			got, err := srv.Get(tCase.mType, tCase.mName)
+			if tCase.pass {
+				require.NoError(t, err)
+				require.Equal(t, tCase.want, got)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tCase.want)
 		})
 	}
 }

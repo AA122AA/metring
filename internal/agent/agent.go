@@ -9,6 +9,8 @@ import (
 	"time"
 
 	models "github.com/AA122AA/metring/internal/server/model"
+	"github.com/go-faster/sdk/zctx"
+	"go.uber.org/zap"
 )
 
 type Metric struct {
@@ -20,12 +22,14 @@ type MetricAgent struct {
 	// TODO: добавить локи, чтоб безопасно работать с мапой
 	mm           map[string]*Metric
 	pollInterval int
+	lg           *zap.Logger
 }
 
-func NewMetricAgent(cfg *Config) *MetricAgent {
+func NewMetricAgent(ctx context.Context, cfg *Config) *MetricAgent {
 	return &MetricAgent{
 		mm:           make(map[string]*Metric),
 		pollInterval: cfg.PollInterval,
+		lg:           zctx.From(ctx).Named("metrics agent"),
 	}
 }
 
@@ -34,7 +38,7 @@ func (ma *MetricAgent) Run(ctx context.Context, wg *sync.WaitGroup) {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("got cancellation, returning")
+			ma.lg.Info("got cancellation, returning")
 			return
 		default:
 			ma.GatherMetrics()
@@ -44,7 +48,7 @@ func (ma *MetricAgent) Run(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func (ma *MetricAgent) GatherMetrics() {
-	fmt.Println("Start Gathering metrics")
+	ma.lg.Debug("Start Gathering metrics")
 
 	memoryStats := &runtime.MemStats{}
 	runtime.ReadMemStats(memoryStats)
@@ -166,7 +170,7 @@ func (ma *MetricAgent) GatherMetrics() {
 		Value: fmt.Sprintf("%v", rand.Float64()),
 	}
 
-	fmt.Println("Finish Gathering metrics")
+	ma.lg.Debug("Finish Gathering metrics")
 }
 
 func (ma *MetricAgent) GetMetrics() map[string]*Metric {

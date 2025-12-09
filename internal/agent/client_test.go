@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 func TestSendUpdate_always_pass(t *testing.T) {
 	testMName := "counter"
+	ctx := context.Background()
 	testMap := map[string]*Metric{
 		testMName: {
 			MType: models.Counter,
@@ -53,8 +55,8 @@ func TestSendUpdate_always_pass(t *testing.T) {
 
 			tCase.cfg.URL = srv.URL
 
-			ma := NewMetricAgent(tCase.cfg)
-			mc := NewMetricClient(ma, tCase.cfg)
+			ma := NewMetricAgent(ctx, tCase.cfg)
+			mc := NewMetricClient(ctx, ma, tCase.cfg)
 			mc.SendUpdate(tCase.mm)
 		})
 	}

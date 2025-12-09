@@ -1,20 +1,25 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
 	models "github.com/AA122AA/metring/internal/server/model"
 	"github.com/AA122AA/metring/internal/server/repository"
+	"github.com/go-faster/sdk/zctx"
+	"go.uber.org/zap"
 )
 
 type Metrics struct {
 	repo repository.MetricsRepository
+	lg   *zap.Logger
 }
 
-func NewMetrics(r repository.MetricsRepository) *Metrics {
+func NewMetrics(ctx context.Context, r repository.MetricsRepository) *Metrics {
 	return &Metrics{
 		repo: r,
+		lg:   zctx.From(ctx).Named("metrics service"),
 	}
 }
 
@@ -65,6 +70,8 @@ func (m *Metrics) Update(mName, mType, value string) error {
 
 		*metric.Delta += *v.Delta
 	}
+
+	m.lg.Debug("updated value")
 
 	return m.repo.Write(mName, metric)
 }

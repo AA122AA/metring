@@ -9,6 +9,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/go-faster/sdk/zctx"
+	"go.uber.org/zap"
 )
 
 type MetricClient struct {
@@ -17,9 +20,10 @@ type MetricClient struct {
 
 	client *http.Client
 	agent  *MetricAgent
+	lg     *zap.Logger
 }
 
-func NewMetricClient(mAgent *MetricAgent, cfg *Config) *MetricClient {
+func NewMetricClient(ctx context.Context, mAgent *MetricAgent, cfg *Config) *MetricClient {
 	return &MetricClient{
 		reportInterval: cfg.ReportInterval,
 		baseURL:        cfg.URL,
@@ -27,6 +31,7 @@ func NewMetricClient(mAgent *MetricAgent, cfg *Config) *MetricClient {
 			Timeout: 8 * time.Second,
 		},
 		agent: mAgent,
+		lg:    zctx.From(ctx).Named("metrics client"),
 	}
 }
 
@@ -36,7 +41,7 @@ func (mc *MetricClient) Run(ctx context.Context, wg *sync.WaitGroup) {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("got cancellation, returning")
+			mc.lg.Info("got cancellation, returning")
 			return
 		case <-ticker.C:
 			mc.SendUpdate(mc.agent.GetMetrics())
@@ -47,40 +52,44 @@ func (mc *MetricClient) Run(ctx context.Context, wg *sync.WaitGroup) {
 func (mc *MetricClient) SendUpdate(mm map[string]*Metric) {
 	for k, v := range mm {
 
-		u := buildURL(mc.baseURL, "update", v.MType, k, v.Value)
+		u, err := buildURL(mc.baseURL, "update", v.MType, k, v.Value)
+		if err != nil {
+			mc.lg.Error("error building url", zap.Error(err))
+			continue
+		}
 
 		req, err := http.NewRequest(http.MethodPost, u.String(), nil)
 		if err != nil {
-			fmt.Printf("error making new request: %v\n", err)
+			mc.lg.Error("error making new request", zap.Error(err))
 			continue
 		}
 		req.Header.Set("Content-Type", "text/plain")
 
 		resp, err := mc.client.Do(req)
 		if err != nil {
-			fmt.Printf("error doing request to - %v, error: %v\n", req.URL.String(), err)
+			mc.lg.Error("error doing request", zap.String("url", req.URL.String()), zap.Error(err))
 			continue
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			fmt.Printf("err - %v\n", resp.Status)
+			mc.lg.Error("wrong status", zap.Int("status code", resp.StatusCode), zap.String("status", resp.Status))
 			continue
 		}
-		fmt.Println("sent update")
+		mc.lg.Debug("sent update")
 	}
 }
 
-func buildURL(base string, values ...string) *url.URL {
+func buildURL(base string, values ...string) (*url.URL, error) {
 	if !strings.HasPrefix(base, "http://") {
 		base = "http://" + base
 	}
 
 	u, err := url.Parse(base)
 	if err != nil {
-		fmt.Printf("error while building url: %v\n", err)
+		return nil, fmt.Errorf("error while building url: %w", err)
 	}
 	fullPath := path.Join(values...)
 	u.Path = path.Join(u.Path, fullPath)
-	return u
+	return u, nil
 }

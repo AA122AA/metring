@@ -6,6 +6,14 @@ import (
 	models "github.com/AA122AA/metring/internal/server/model"
 )
 
+const (
+	Alloc     = "alloc"
+	Counter   = "counter"
+	PollCount = "pollCount"
+	NoData    = "noData"
+	Error     = "error"
+)
+
 type mockRepo struct{}
 
 func NewMockRepo() *mockRepo {
@@ -13,38 +21,45 @@ func NewMockRepo() *mockRepo {
 }
 
 func (mr *mockRepo) GetAll() (map[string]*models.Metrics, error) {
-	v := int64(1)
+	i := int64(1)
+	f := float64(1.25)
 	return map[string]*models.Metrics{
-		"Alloc": {
+		Alloc: {
 			ID:    "1",
+			MType: models.Gauge,
+			Value: &f,
+		},
+		PollCount: {
+			ID:    "2",
 			MType: models.Counter,
-			Delta: &v,
+			Delta: &i,
 		},
 	}, nil
 }
 
 func (mr *mockRepo) Get(name string) (*models.Metrics, error) {
 	switch name {
-	case "counter":
+	case PollCount:
 		fmt.Printf("Got name - %v\n", name)
 		v := int64(2)
 		return &models.Metrics{
 			MType: models.Counter,
 			Delta: &v,
 		}, nil
-	case "data":
-		fmt.Printf("Got name - %v\n", name)
-		return nil, fmt.Errorf("data not found")
-	case "error":
-		fmt.Printf("Got name - %v\n", name)
-		return nil, fmt.Errorf("some error")
-	case "gauge":
+	case Alloc:
 		fmt.Printf("Got name - %v\n", name)
 		v := float64(1.25)
 		return &models.Metrics{
 			MType: models.Gauge,
 			Value: &v,
 		}, nil
+	case NoData:
+		fmt.Printf("Got name - %v\n", name)
+		return nil, fmt.Errorf("data not found")
+	case Error:
+		fmt.Printf("Got name - %v\n", name)
+		return nil, fmt.Errorf("some error")
+
 	default:
 		fmt.Printf("Got name - %v\n", name)
 		return &models.Metrics{}, nil
