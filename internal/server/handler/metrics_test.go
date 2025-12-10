@@ -26,9 +26,10 @@ func TestGetAll(t *testing.T) {
 		pass   bool
 	}{
 		{
-			name:   "Positive",
-			url:    "/",
-			tPath:  "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
+			name: "Positive",
+			url:  "/",
+			// tPath:  "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
+			tPath:  "../templates/*.html",
 			status: 200,
 			repo:   repository.NewMockRepo(),
 			pass:   true,

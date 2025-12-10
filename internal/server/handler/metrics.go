@@ -35,7 +35,7 @@ func (h MetricsHandler) All(w http.ResponseWriter, r *http.Request) {
 	templates, err := template.ParseGlob(h.tmplPath)
 	if err != nil {
 		h.lg.Error("no templates within path", zap.String("path", h.tmplPath), zap.Error(err))
-		http.Error(w, "no html templates", http.StatusNotFound)
+		http.Error(w, "no html templates", http.StatusInternalServerError)
 		return
 	}
 
