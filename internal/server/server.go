@@ -29,7 +29,7 @@ func NewServer(ctx context.Context, cfg *config.Config) *Server {
 }
 
 func (s *Server) Run() error {
-	s.lg.Info("Start server on %v\n", zap.String("addr", s.srv.Addr))
+	s.lg.Info("Start server on", zap.String("addr", s.srv.Addr))
 	return s.srv.ListenAndServe()
 }
 
