@@ -7,6 +7,7 @@
 
 # Test binary, built with `go test -c`
 *.test
+metricstest_v2
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
@@ -16,6 +17,7 @@ cmd/agent/main
 cmd/agent/agent
 cmd/server/main
 cmd/server/server
+bin/
 
 # Dependency directories (remove the comment below to include it)
 vendor/

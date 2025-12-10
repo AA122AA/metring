@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Metrics</title>
+    </head>
+    <body>
+        <table border="1">
+            <tr>
+                <th>Metric Name</th>
+                <th>ID</th>
+                <th>Metric Type</th>
+                <th>Delta</th>
+                <th>Value</th>
+                <th>Hash</th>
+            </tr>
+
+            {{range $mName, $metric := .Metrics}}
+            <tr>
+                <td>{{$mName}}</td>
+                <td>{{$metric.ID}}</td>
+                <td>{{$metric.MType}}</td>
+                <td>{{$metric.Delta}}</td>
+                <td>{{$metric.Value}}</td>
+                <td>{{$metric.Hash}}</td>
+            </tr>
+            {{else}}
+            <tr>
+                <td colspan="4">No metrics found</td>
+            </tr>
+            {{end}}
+        </table>
+    </body>
+</html>
