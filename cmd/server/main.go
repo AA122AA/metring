@@ -17,7 +17,10 @@ import (
 // функция main вызывается автоматически при запуске приложения
 func main() {
 	if err := run(); err != nil {
-		log.Fatalf("got error in run func - %v", err)
+		if err.Error() == "http: Server closed" {
+			return
+		}
+		log.Fatalf("got error in run func: %v", err)
 	}
 }
 
@@ -49,5 +52,5 @@ func run() error {
 
 	server := server.NewServer(ctx, cfg)
 
-	return server.Run()
+	return server.Run(ctx)
 }

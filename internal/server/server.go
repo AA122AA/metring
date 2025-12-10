@@ -28,8 +28,19 @@ func NewServer(ctx context.Context, cfg *config.Config) *Server {
 	}
 }
 
-func (s *Server) Run() error {
+func (s *Server) Run(ctx context.Context) error {
+	go func() {
+		<-ctx.Done()
+		if s.srv != nil {
+			if err := s.srv.Shutdown(ctx); err != nil {
+				s.lg.Fatal("failed to shutdown http server", zap.Error(err))
+			}
+			s.lg.Info("shutdown http server")
+		}
+	}()
+
 	s.lg.Info("Start server on", zap.String("addr", s.srv.Addr))
+
 	return s.srv.ListenAndServe()
 }
 
