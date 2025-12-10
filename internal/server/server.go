@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"net"
 	"net/http"
+	"strings"
 
 	"github.com/AA122AA/metring/internal/server/config"
 	"github.com/AA122AA/metring/internal/server/handler"
@@ -38,10 +40,15 @@ func (s *Server) Run(ctx context.Context) error {
 			s.lg.Info("shutdown http server")
 		}
 	}()
+	port := ":" + strings.Split(s.srv.Addr, ":")[1]
+	listener, err := net.Listen("tcp", port)
+	if err != nil {
+		s.lg.Fatal("failed to create listener", zap.Error(err))
+	}
 
 	s.lg.Info("Start server on", zap.String("addr", s.srv.Addr))
 
-	return s.srv.ListenAndServe()
+	return s.srv.Serve(listener)
 }
 
 func router(ctx context.Context, tPath string) *chi.Mux {
