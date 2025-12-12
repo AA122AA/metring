@@ -10,6 +10,8 @@ import (
 	"github.com/AA122AA/metring/internal/server"
 	"github.com/AA122AA/metring/internal/server/config"
 	"github.com/AA122AA/metring/internal/zapcfg"
+	"github.com/caarlos0/env"
+	"github.com/creasty/defaults"
 	"github.com/go-faster/sdk/zctx"
 	"go.uber.org/zap"
 )
@@ -48,7 +50,22 @@ func run() error {
 	defer cancel()
 
 	cfg := &config.Config{}
-	cfg.ParseConfig(ctx)
+
+	if err := defaults.Set(cfg); err != nil {
+		lg.Fatal("error setting defaults for config", zap.Error(err))
+	}
+
+	cfg.ParseConfig()
+
+	if err = env.Parse(cfg); err != nil {
+		lg.Fatal("error setting config from env", zap.Error(err))
+	}
+
+	lg.Debug(
+		"server config",
+		zap.String("address", cfg.HostAddr),
+		zap.String("template path", cfg.TemplatePath),
+	)
 
 	server := server.NewServer(ctx, cfg)
 

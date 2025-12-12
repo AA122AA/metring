@@ -45,6 +45,7 @@ func (s *Server) Run(ctx context.Context) error {
 	if err != nil {
 		s.lg.Fatal("failed to create listener", zap.Error(err))
 	}
+	s.lg.Info(listener.Addr().String())
 
 	s.lg.Info("Start server on", zap.String("addr", s.srv.Addr))
 
