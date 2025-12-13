@@ -8,6 +8,7 @@ import (
 
 	"github.com/AA122AA/metring/internal/server/config"
 	"github.com/AA122AA/metring/internal/server/handler"
+	"github.com/AA122AA/metring/internal/server/middleware"
 	"github.com/AA122AA/metring/internal/server/repository"
 	"github.com/AA122AA/metring/internal/server/service"
 	"github.com/go-chi/chi/v5"
@@ -58,9 +59,18 @@ func router(ctx context.Context, tPath string) *chi.Mux {
 	h := handler.NewMetricsHandler(ctx, tPath, srv)
 
 	router := chi.NewRouter()
-	router.Get("/", h.All)
-	router.Get("/value/{mType}/{mName}", h.Get)
-	router.Post("/update/{mType}/{mName}/{value}", h.Update)
+	router.Get("/", middleware.Wrap(
+		http.HandlerFunc(h.All),
+		middleware.WithLogger(zctx.From(ctx).Named("GetAll"))),
+	)
+	router.Get("/value/{mType}/{mName}", middleware.Wrap(
+		http.HandlerFunc(h.Get),
+		middleware.WithLogger(zctx.From(ctx).Named("GetValuer"))),
+	)
+	router.Post("/update/{mType}/{mName}/{value}", middleware.Wrap(
+		http.HandlerFunc(h.Update),
+		middleware.WithLogger(zctx.From(ctx).Named("UpdateValue"))),
+	)
 
 	return router
 }

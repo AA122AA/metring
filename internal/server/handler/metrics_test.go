@@ -34,6 +34,15 @@ func TestGetAll(t *testing.T) {
 			repo:   repository.NewMockRepo(),
 			pass:   true,
 		},
+		{
+			name:  "Negative tPath",
+			url:   "/",
+			tPath: "xxx/*.html",
+			// tPath:  "../templates/*.html",
+			status: 500,
+			repo:   repository.NewMockRepo(),
+			pass:   false,
+		},
 	}
 
 	for _, tCase := range cases {
@@ -56,7 +65,9 @@ func TestGetAll(t *testing.T) {
 				require.NoError(t, err)
 
 				require.Contains(t, string(body), repository.Alloc)
+				return
 			}
+			require.Equal(t, tCase.status, res.StatusCode)
 		})
 	}
 }

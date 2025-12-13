@@ -21,6 +21,7 @@ type Metric struct {
 type MetricAgent struct {
 	// TODO: добавить локи, чтоб безопасно работать с мапой
 	mm           map[string]*Metric
+	mu           sync.Mutex
 	pollInterval int
 	lg           *zap.Logger
 }
@@ -48,6 +49,8 @@ func (ma *MetricAgent) Run(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func (ma *MetricAgent) GatherMetrics() {
+	ma.mu.Lock()
+	defer ma.mu.Unlock()
 	ma.lg.Debug("Start Gathering metrics")
 
 	memoryStats := &runtime.MemStats{}
@@ -174,5 +177,7 @@ func (ma *MetricAgent) GatherMetrics() {
 }
 
 func (ma *MetricAgent) GetMetrics() map[string]*Metric {
+	ma.mu.Lock()
+	defer ma.mu.Unlock()
 	return ma.mm
 }

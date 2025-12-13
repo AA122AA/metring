@@ -28,7 +28,7 @@ func NewMetricClient(ctx context.Context, mAgent *MetricAgent, cfg *Config) *Met
 		reportInterval: cfg.ReportInterval,
 		baseURL:        cfg.URL,
 		client: &http.Client{
-			Timeout: 8 * time.Second,
+			Timeout: 2 * time.Second,
 		},
 		agent: mAgent,
 		lg:    zctx.From(ctx).Named("metrics client"),
