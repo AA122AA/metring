@@ -67,10 +67,16 @@ func router(ctx context.Context, tPath string) *chi.Mux {
 		http.HandlerFunc(h.Get),
 		middleware.WithLogger(zctx.From(ctx).Named("GetValuer"))),
 	)
-	router.Post("/update/{mType}/{mName}/{value}", middleware.Wrap(
-		http.HandlerFunc(h.Update),
-		middleware.WithLogger(zctx.From(ctx).Named("UpdateValue"))),
-	)
+	router.Route("/update", func(r chi.Router) {
+		router.Post("/", middleware.Wrap(
+			http.HandlerFunc(h.UpdateJSON),
+			middleware.WithLogger(zctx.From(ctx).Named("UpdateValueJSON"))),
+		)
+		router.Post("/{mType}/{mName}/{value}", middleware.Wrap(
+			http.HandlerFunc(h.Update),
+			middleware.WithLogger(zctx.From(ctx).Named("UpdateValue"))),
+		)
+	})
 
 	return router
 }

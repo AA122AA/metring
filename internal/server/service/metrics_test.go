@@ -13,67 +13,66 @@ func TestParse(t *testing.T) {
 	v1 := float64(1.25)
 	v2 := int64(1)
 	cases := []struct {
-		name   string
-		metric *models.Metrics
-		value  string
-		want   *models.Metrics
-		pass   bool
+		name  string
+		mName string
+		mType string
+		value string
+		want  *models.MetricsJSON
+		pass  bool
 	}{
 		{
-			name: "Positive Gauge",
-			metric: &models.Metrics{
-				MType: models.Gauge,
-			},
+			name:  "Positive Gauge",
+			mName: "Alloc",
+			mType: models.Gauge,
 			value: "1.25",
-			want: &models.Metrics{
+			want: &models.MetricsJSON{
+				ID:    "Alloc",
 				MType: models.Gauge,
 				Value: &v1,
 			},
 			pass: true,
 		},
 		{
-			name: "Positive Counter",
-			metric: &models.Metrics{
-				MType: models.Counter,
-			},
+			name:  "Positive Counter",
+			mName: "PollCounter",
+			mType: models.Counter,
 			value: "1",
-			want: &models.Metrics{
+			want: &models.MetricsJSON{
+				ID:    "PollCounter",
 				MType: models.Counter,
 				Delta: &v2,
 			},
 			pass: true,
 		},
 		{
-			name: "Negative Gauge",
-			metric: &models.Metrics{
-				MType: models.Gauge,
-			},
+			name:  "Negative Gauge",
+			mName: "wrong gauge",
+			mType: models.Gauge,
 			value: "a",
 			pass:  false,
 		},
 		{
-			name: "Negative Counter",
-			metric: &models.Metrics{
-				MType: models.Counter,
-			},
+			name:  "Negative Counter",
+			mName: "wrong counter",
+			mType: models.Counter,
 			value: "a",
 			pass:  false,
 		},
 		{
-			name: "Wrong metric type",
-			metric: &models.Metrics{
-				MType: "lol",
-			},
-			pass: false,
+			name:  "Wrong metric type",
+			mName: "wrong type",
+			mType: "lol",
+			pass:  false,
 		},
 	}
 
 	for _, tCase := range cases {
 		t.Run(tCase.name, func(t *testing.T) {
-			err := parse(tCase.metric, tCase.value)
+			srv := NewMetrics(context.Background(), repository.NewMockRepo())
+			data, err := srv.Parse(tCase.mType, tCase.mName, tCase.value)
 			if tCase.pass {
 				require.NoError(t, err)
-				require.Equal(t, tCase.want, tCase.metric)
+				require.Equal(t, tCase.want, data)
 				return
 			}
 			require.Error(t, err)
@@ -82,80 +81,85 @@ func TestParse(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
+	v := float64(1.25)
+	d := int64(1)
+	d1 := int64(1)
 	ctx := context.Background()
 	cases := []struct {
-		name  string
-		mName string
-		mType string
-		value string
-		pass  bool
-		repo  repository.MetricsRepository
-		want  string
+		name   string
+		metric *models.MetricsJSON
+		pass   bool
+		repo   repository.MetricsRepository
+		want   string
 	}{
 		{
-			name:  "Positive Gauge",
-			mName: repository.Alloc,
-			mType: models.Gauge,
-			value: "1.25",
-			pass:  true,
-			repo:  repository.NewMockRepo(),
-			want:  "1.25",
+			name: "Positive Gauge",
+			metric: &models.MetricsJSON{
+				ID:    repository.Alloc,
+				MType: models.Gauge,
+				Value: &v,
+			},
+			pass: true,
+			repo: repository.NewMockRepo(),
+			want: "1.25",
 		},
 		{
-			name:  "Positive Counter",
-			mName: repository.PollCount,
-			mType: models.Counter,
-			value: "1",
-			pass:  true,
-			repo:  repository.NewMemStorage(),
-			want:  "1",
+			name: "Positive Counter",
+			metric: &models.MetricsJSON{
+				ID:    repository.PollCount,
+				MType: models.Counter,
+				Delta: &d,
+			},
+			pass: true,
+			repo: repository.NewMemStorage(),
+			want: "2",
 		},
 		{
-			name:  "Positive Counter 2",
-			mName: repository.NoData,
-			mType: models.Counter,
-			value: "1",
-			repo:  repository.NewMockRepo(),
-			pass:  true,
+			name: "Positive Counter 2",
+			metric: &models.MetricsJSON{
+				ID:    repository.NoData,
+				MType: models.Counter,
+				Delta: &d1,
+			},
+			repo: repository.NewMemStorage(),
+			pass: true,
+			want: "1",
 		},
 		{
-			name:  "Negative repo",
-			mName: repository.Error,
-			mType: models.Counter,
-			value: "1",
-			repo:  repository.NewMockRepo(),
-			pass:  false,
+			name: "Negative repo",
+			metric: &models.MetricsJSON{
+				ID:    repository.Error,
+				MType: models.Counter,
+				Delta: &d,
+			},
+			repo: repository.NewMockRepo(),
+			pass: false,
 		},
 		{
-			name:  "Negative, wrong value",
-			mName: repository.Alloc,
-			mType: models.Gauge,
-			value: "a",
-			repo:  repository.NewMockRepo(),
-			pass:  false,
-		},
-		{
-			name:  "Negative, wrong type",
-			mName: repository.Alloc,
-			mType: "lol",
-			value: "1",
-			repo:  repository.NewMockRepo(),
-			pass:  false,
+			name: "Negative, wrong type",
+			metric: &models.MetricsJSON{
+				ID:    repository.Alloc,
+				MType: "lol",
+				Delta: &d,
+			},
+			repo: repository.NewMockRepo(),
+			pass: false,
 		},
 	}
 
 	for _, tCase := range cases {
 		t.Run(tCase.name, func(t *testing.T) {
-			if tCase.mName == repository.Counter {
-				v := int64(1)
-				tCase.repo.Write(tCase.mName, &models.Metrics{
-					MType: tCase.mType,
-					Delta: &v,
+			m := NewMetrics(ctx, tCase.repo)
+
+			if tCase.metric.MType == repository.Counter && tCase.metric.ID == repository.PollCount {
+				d := int64(1)
+				tCase.repo.Write(tCase.metric.ID, &models.Metrics{
+					MType: tCase.metric.MType,
+					Delta: &d,
 				})
 			}
 
-			m := NewMetrics(ctx, tCase.repo)
-			err := m.Update(tCase.mName, tCase.mType, tCase.value)
+			err := m.Update(tCase.metric)
 			if !tCase.pass {
 				require.Error(t, err)
 				return
@@ -164,7 +168,7 @@ func TestUpdate(t *testing.T) {
 			require.NoError(t, err)
 
 			if tCase.want != "" {
-				got, err := m.Get(tCase.mType, tCase.mName)
+				got, err := m.Get(tCase.metric.MType, tCase.metric.ID)
 				require.NoError(t, err)
 				require.Equal(t, tCase.want, got)
 			}

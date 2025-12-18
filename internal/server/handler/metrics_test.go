@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -224,6 +226,99 @@ func TestUpdate(t *testing.T) {
 				require.Equal(t, tCase.want, strings.TrimSpace(string(data)))
 			}
 			if tCase.pass {
+				require.Equal(t, tCase.statusCode, res.StatusCode)
+				return
+			}
+
+			require.Equal(t, tCase.statusCode, res.StatusCode)
+		})
+	}
+}
+
+func TestUpdateJSON(t *testing.T) {
+	v := float64(1.25)
+	ctx := context.Background()
+	cases := []struct {
+		name       string
+		url        string
+		tPath      string
+		metric     *models.MetricsJSON
+		want       string
+		statusCode int
+		pass       bool
+	}{
+		{
+			name:  "Positive",
+			url:   "/update",
+			tPath: "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
+			metric: &models.MetricsJSON{
+				ID:    repository.Alloc,
+				MType: models.Gauge,
+				Value: &v,
+			},
+			statusCode: http.StatusOK,
+			pass:       true,
+		},
+		{
+			name:  "Negative, no mName",
+			url:   "/update",
+			tPath: "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
+			metric: &models.MetricsJSON{
+				ID:    "",
+				MType: models.Gauge,
+				Value: &v,
+			},
+			statusCode: http.StatusBadRequest,
+			pass:       false,
+		},
+		{
+			name:  "Negative, bad type",
+			url:   "/update",
+			tPath: "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
+			metric: &models.MetricsJSON{
+				ID:    repository.Alloc,
+				MType: "lol",
+				Value: &v,
+			},
+			statusCode: http.StatusBadRequest,
+			pass:       false,
+		},
+		{
+			name:  "Negative, bad value",
+			url:   "/update/",
+			tPath: "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
+			metric: &models.MetricsJSON{
+				ID:    repository.Alloc,
+				MType: models.Gauge,
+			},
+			statusCode: http.StatusBadRequest,
+			pass:       false,
+		},
+	}
+
+	for _, tCase := range cases {
+		t.Run(tCase.name, func(t *testing.T) {
+			repo := repository.NewMockRepo()
+			srv := service.NewMetrics(ctx, repo)
+			h := NewMetricsHandler(ctx, tCase.tPath, srv)
+
+			body, err := json.Marshal(tCase.metric)
+			require.NoError(t, err)
+			buf := bytes.NewBuffer(body)
+
+			r := httptest.NewRequest(http.MethodPost, tCase.url, buf)
+			rec := httptest.NewRecorder()
+			h.UpdateJSON(rec, r)
+
+			res := rec.Result()
+			if tCase.want != "" {
+				defer res.Body.Close()
+				data, err := io.ReadAll(res.Body)
+				require.NoError(t, err)
+				require.Equal(t, tCase.want, strings.TrimSpace(string(data)))
+			}
+			if tCase.pass {
+
 				require.Equal(t, tCase.statusCode, res.StatusCode)
 				return
 			}

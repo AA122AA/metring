@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"html/template"
 	"net/http"
 
@@ -12,7 +13,8 @@ import (
 )
 
 type Metrics interface {
-	Update(mName string, mType string, value string) error
+	Parse(mType string, mName string, value string) (*models.MetricsJSON, error)
+	Update(metric *models.MetricsJSON) error
 	Get(mType string, mName string) (string, error)
 	GetAll() (map[string]*models.Metrics, error)
 }
@@ -96,14 +98,41 @@ func (h MetricsHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.srv.Update(mName, mType, value)
+	data, err := h.srv.Parse(mType, mName, value)
+	if err != nil {
+		h.lg.Error("metrics type or value is incorrect", zap.Error(err))
+		http.Error(w, "тип или значение некорректно", http.StatusBadRequest)
+		return
+	}
+
+	err = h.srv.Update(data)
+	if err != nil {
+		h.lg.Error("error while updating metric", zap.Error(err))
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+
+	h.lg.Debug("got new metric", zap.String("name", mName), zap.String("value", value))
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h MetricsHandler) UpdateJSON(w http.ResponseWriter, r *http.Request) {
+	metric := models.MetricsJSON{}
+	defer r.Body.Close()
+	err := json.NewDecoder(r.Body).Decode(&metric)
+	if err != nil {
+		http.Error(w, "Что-то пошло не так", http.StatusInternalServerError)
+		h.lg.Error("error while decoding", zap.Error(err))
+		return
+	}
+
+	err = h.srv.Update(&metric)
 	if err != nil {
 		h.lg.Error("metrics type or value is incorrect")
 		http.Error(w, "тип или значение некорректно", http.StatusBadRequest)
 		return
 	}
-
-	h.lg.Debug("got new metric", zap.String("name", mName), zap.String("value", value))
 
 	w.WriteHeader(http.StatusOK)
 }

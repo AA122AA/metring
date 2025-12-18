@@ -47,23 +47,18 @@ func (m *Metrics) Get(mType, mName string) (string, error) {
 	return res, nil
 }
 
-func (m *Metrics) Update(mName, mType, value string) error {
-	// Создаем модель
-	metric := &models.Metrics{
-		MType: mType,
+func (m *Metrics) Update(data *models.MetricsJSON) error {
+	if err := validate(data); err != nil {
+		return err
 	}
-	// Парсим значение метрики
-	err := parse(metric, value)
-	if err != nil {
-		return fmt.Errorf("%w", err)
-	}
+	metric := models.TransformFromJSON(data)
 
 	// Увеличиваем значение, если это Counter
-	if metric.MType == models.Counter {
-		v, err := m.repo.Get(mName)
+	if data.MType == models.Counter {
+		v, err := m.repo.Get(metric.ID)
 		if err != nil {
 			if err.Error() == "data not found" {
-				return m.repo.Write(mName, metric)
+				return m.repo.Write(data.ID, metric)
 			}
 			return fmt.Errorf("%w", err)
 		}
@@ -73,28 +68,49 @@ func (m *Metrics) Update(mName, mType, value string) error {
 
 	m.lg.Debug("updated value")
 
-	return m.repo.Write(mName, metric)
+	return m.repo.Write(metric.ID, metric)
 }
 
-func parse(metric *models.Metrics, value string) error {
-	switch metric.MType {
+func validate(data *models.MetricsJSON) error {
+	if data.ID == "" {
+		return fmt.Errorf("empty name")
+	}
+	if data.Value == nil && data.Delta == nil {
+		return fmt.Errorf("empty Value or Delta")
+	}
+	switch data.MType {
 	case models.Counter:
-		i, err := strconv.ParseInt(value, 10, 64)
-		if err != nil {
-			return fmt.Errorf("bad input value - %w", err)
-		}
-
-		metric.Delta = &i
 		return nil
 	case models.Gauge:
-		f, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return fmt.Errorf("bad input value - %w", err)
-		}
-
-		metric.Value = &f
 		return nil
 	default:
 		return fmt.Errorf("wrong type")
+	}
+}
+
+func (m *Metrics) Parse(mType, mName, value string) (*models.MetricsJSON, error) {
+	data := &models.MetricsJSON{
+		ID:    mName,
+		MType: mType,
+	}
+	switch mType {
+	case models.Counter:
+		i, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("bad input value - %w", err)
+		}
+
+		data.Delta = &i
+		return data, nil
+	case models.Gauge:
+		f, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return nil, fmt.Errorf("bad input value - %w", err)
+		}
+
+		data.Value = &f
+		return data, nil
+	default:
+		return nil, fmt.Errorf("wrong type")
 	}
 }
