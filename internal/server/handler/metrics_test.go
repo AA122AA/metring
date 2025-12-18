@@ -89,7 +89,7 @@ func TestGet(t *testing.T) {
 		{
 			name:   "Positive",
 			mName:  repository.Alloc,
-			mType:  "gauge",
+			mType:  models.Gauge,
 			url:    "/value/gauge/gauge",
 			tPath:  "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
 			status: http.StatusOK,
@@ -150,6 +150,86 @@ func TestGet(t *testing.T) {
 	}
 }
 
+func TestGetJSON(t *testing.T) {
+	ctx := context.Background()
+	cases := []struct {
+		name   string
+		metric *models.MetricsJSON
+		url    string
+		tPath  string
+		status int
+		pass   bool
+		want   string
+	}{
+		{
+			name: "Positive",
+			metric: &models.MetricsJSON{
+				ID:    repository.Alloc,
+				MType: models.Gauge,
+			},
+			url:    "/value",
+			tPath:  "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
+			status: http.StatusOK,
+			pass:   true,
+			want:   `{"id":"alloc","type":"gauge","value":1.25}`,
+		},
+		{
+			name: "Negative, wrong type",
+			metric: &models.MetricsJSON{
+				ID:    repository.Alloc,
+				MType: models.Counter,
+			},
+			url:    "/value",
+			tPath:  "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
+			status: http.StatusNotFound,
+			pass:   false,
+			want:   `No metric with this type`,
+		},
+		{
+			name: "Negative, wrong name",
+			metric: &models.MetricsJSON{
+				ID:    repository.NoData,
+				MType: models.Gauge,
+			},
+			url:    "/value",
+			tPath:  "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
+			status: http.StatusNotFound,
+			pass:   false,
+			want:   `No metric with this name`,
+		},
+	}
+
+	for _, tCase := range cases {
+		t.Run(tCase.name, func(t *testing.T) {
+			repo := repository.NewMockRepo()
+			srv := service.NewMetrics(ctx, repo)
+			h := NewMetricsHandler(ctx, tCase.tPath, srv)
+
+			body, err := json.Marshal(tCase.metric)
+			require.NoError(t, err)
+			buf := bytes.NewBuffer(body)
+
+			r := httptest.NewRequest(http.MethodPost, tCase.url, buf)
+
+			rec := httptest.NewRecorder()
+			h.GetJSON(rec, r)
+
+			res := rec.Result()
+			if tCase.want != "" {
+				defer res.Body.Close()
+				data, err := io.ReadAll(res.Body)
+				require.NoError(t, err)
+				require.Equal(t, tCase.want, strings.TrimSpace(string(data)))
+			}
+			if tCase.pass {
+				require.Equal(t, res.StatusCode, http.StatusOK)
+				return
+			}
+			require.Equal(t, tCase.status, res.StatusCode)
+		})
+	}
+}
+
 func TestUpdate(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {
@@ -167,8 +247,8 @@ func TestUpdate(t *testing.T) {
 			name:       "Positive",
 			url:        "/update/gauge/gauge/1.25",
 			tPath:      "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
-			mName:      "gauge",
-			mType:      "gauge",
+			mName:      repository.Alloc,
+			mType:      models.Gauge,
 			value:      "1.25",
 			statusCode: http.StatusOK,
 			pass:       true,

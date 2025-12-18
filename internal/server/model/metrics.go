@@ -33,3 +33,12 @@ func TransformFromJSON(data *MetricsJSON) *Metrics {
 		Value: data.Value,
 	}
 }
+
+func TransformToJSON(data *Metrics) *MetricsJSON {
+	return &MetricsJSON{
+		ID:    data.ID,
+		MType: data.MType,
+		Delta: data.Delta,
+		Value: data.Value,
+	}
+}

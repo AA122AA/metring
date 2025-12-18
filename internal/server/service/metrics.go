@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/AA122AA/metring/internal/server/constants"
 	models "github.com/AA122AA/metring/internal/server/model"
 	"github.com/AA122AA/metring/internal/server/repository"
 	"github.com/go-faster/sdk/zctx"
@@ -27,13 +28,26 @@ func (m *Metrics) GetAll() (map[string]*models.Metrics, error) {
 	return m.repo.GetAll()
 }
 
-func (m *Metrics) Get(mType, mName string) (string, error) {
-	metric, err := m.repo.Get(mName)
-	if err != nil {
-		return "", fmt.Errorf("err from repo: %w", err)
+func (m *Metrics) get(data *models.MetricsJSON) (*models.Metrics, error) {
+	if err := validate(data, constants.Get); err != nil {
+		return nil, err
 	}
-	if mType != metric.MType {
-		return "", fmt.Errorf("wrong metric type")
+	metric, err := m.repo.Get(data.ID)
+	if err != nil {
+		return nil, fmt.Errorf("err from repo: %w", err)
+	}
+	if data.MType != metric.MType {
+		return nil, fmt.Errorf("wrong metric type")
+	}
+	metric.ID = data.ID
+
+	return metric, nil
+}
+
+func (m *Metrics) Get(data *models.MetricsJSON) (string, error) {
+	metric, err := m.get(data)
+	if err != nil {
+		return "", err
 	}
 
 	var res string
@@ -47,8 +61,17 @@ func (m *Metrics) Get(mType, mName string) (string, error) {
 	return res, nil
 }
 
+func (m *Metrics) GetJSON(data *models.MetricsJSON) (*models.MetricsJSON, error) {
+	metric, err := m.get(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return models.TransformToJSON(metric), nil
+}
+
 func (m *Metrics) Update(data *models.MetricsJSON) error {
-	if err := validate(data); err != nil {
+	if err := validate(data, constants.Update); err != nil {
 		return err
 	}
 	metric := models.TransformFromJSON(data)
@@ -71,11 +94,11 @@ func (m *Metrics) Update(data *models.MetricsJSON) error {
 	return m.repo.Write(metric.ID, metric)
 }
 
-func validate(data *models.MetricsJSON) error {
+func validate(data *models.MetricsJSON, handler string) error {
 	if data.ID == "" {
 		return fmt.Errorf("empty name")
 	}
-	if data.Value == nil && data.Delta == nil {
+	if data.Value == nil && data.Delta == nil && handler == constants.Update {
 		return fmt.Errorf("empty Value or Delta")
 	}
 	switch data.MType {
@@ -88,16 +111,26 @@ func validate(data *models.MetricsJSON) error {
 	}
 }
 
-func (m *Metrics) Parse(mType, mName, value string) (*models.MetricsJSON, error) {
+func (m *Metrics) Parse(mType, mName, value, handler string) (*models.MetricsJSON, error) {
 	data := &models.MetricsJSON{
 		ID:    mName,
 		MType: mType,
 	}
+
+	if handler == constants.Get {
+		err := validate(data, handler)
+		if err != nil {
+			return nil, fmt.Errorf("error while validation: %w", err)
+		}
+
+		return data, nil
+	}
+
 	switch mType {
 	case models.Counter:
 		i, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("bad input value - %w", err)
+			return nil, fmt.Errorf("bad input value: %w", err)
 		}
 
 		data.Delta = &i

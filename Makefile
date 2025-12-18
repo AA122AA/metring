@@ -47,3 +47,10 @@ autotest-6:
 	-binary-path=cmd/server/server \
 	-server-port=8080 \
 	-source-path=.
+
+autotest-7:
+	./metricstest_v2 -test.v -test.run=^TestIteration7$$ \
+	-agent-binary-path=cmd/agent/agent \
+	-binary-path=cmd/server/server \
+	-server-port=8080 \
+	-source-path=.

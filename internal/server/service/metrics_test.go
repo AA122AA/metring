@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/AA122AA/metring/internal/server/constants"
 	models "github.com/AA122AA/metring/internal/server/model"
 	"github.com/AA122AA/metring/internal/server/repository"
 	"github.com/stretchr/testify/require"
@@ -69,7 +70,7 @@ func TestParse(t *testing.T) {
 	for _, tCase := range cases {
 		t.Run(tCase.name, func(t *testing.T) {
 			srv := NewMetrics(context.Background(), repository.NewMockRepo())
-			data, err := srv.Parse(tCase.mType, tCase.mName, tCase.value)
+			data, err := srv.Parse(tCase.mType, tCase.mName, tCase.value, constants.Update)
 			if tCase.pass {
 				require.NoError(t, err)
 				require.Equal(t, tCase.want, data)
@@ -168,7 +169,7 @@ func TestUpdate(t *testing.T) {
 			require.NoError(t, err)
 
 			if tCase.want != "" {
-				got, err := m.Get(tCase.metric.MType, tCase.metric.ID)
+				got, err := m.Get(tCase.metric)
 				require.NoError(t, err)
 				require.Equal(t, tCase.want, got)
 			}
@@ -223,7 +224,9 @@ func TestGet(t *testing.T) {
 	for _, tCase := range cases {
 		t.Run(tCase.name, func(t *testing.T) {
 			srv := NewMetrics(ctx, tCase.repo)
-			got, err := srv.Get(tCase.mType, tCase.mName)
+			data, err := srv.Parse(tCase.mType, tCase.mName, "", constants.Get)
+			require.NoError(t, err)
+			got, err := srv.Get(data)
 			if tCase.pass {
 				require.NoError(t, err)
 				require.Equal(t, tCase.want, got)

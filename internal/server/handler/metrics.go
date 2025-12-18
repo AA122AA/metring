@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"net/http"
 
+	"github.com/AA122AA/metring/internal/server/constants"
 	models "github.com/AA122AA/metring/internal/server/model"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-faster/sdk/zctx"
@@ -13,9 +14,10 @@ import (
 )
 
 type Metrics interface {
-	Parse(mType string, mName string, value string) (*models.MetricsJSON, error)
+	Parse(mType string, mName string, value string, handler string) (*models.MetricsJSON, error)
 	Update(metric *models.MetricsJSON) error
-	Get(mType string, mName string) (string, error)
+	Get(metric *models.MetricsJSON) (string, error)
+	GetJSON(metric *models.MetricsJSON) (*models.MetricsJSON, error)
 	GetAll() (map[string]*models.Metrics, error)
 }
 
@@ -64,7 +66,14 @@ func (h MetricsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	// mName := r.PathValue("mName")
 	// mType := r.PathValue("mType")
 
-	m, err := h.srv.Get(mType, mName)
+	data, err := h.srv.Parse(mType, mName, "", constants.Get)
+	if err != nil {
+		http.Error(w, "smth went wrong", http.StatusInternalServerError)
+		h.lg.Error("what happend", zap.String("name", mName), zap.Error(err))
+		return
+	}
+
+	m, err := h.srv.Get(data)
 	if err != nil {
 		if err.Error() == "err from repo: data not found" {
 			http.Error(w, "No metric with this name", http.StatusNotFound)
@@ -88,6 +97,46 @@ func (h MetricsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(m))
 }
 
+func (h MetricsHandler) GetJSON(w http.ResponseWriter, r *http.Request) {
+	data := models.MetricsJSON{}
+	defer r.Body.Close()
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		http.Error(w, "Что-то пошло не так", http.StatusInternalServerError)
+		h.lg.Error("error while decoding", zap.Error(err))
+		return
+	}
+
+	m, err := h.srv.GetJSON(&data)
+	if err != nil {
+		if err.Error() == "err from repo: data not found" {
+			http.Error(w, "No metric with this name", http.StatusNotFound)
+			h.lg.Error("no metric with provided name", zap.String("name", data.ID), zap.Error(err))
+			return
+		}
+		if err.Error() == "wrong metric type" {
+			http.Error(w, "No metric with this type", http.StatusNotFound)
+			h.lg.Error("no metric with provided type", zap.String("type", data.MType), zap.Error(err))
+			return
+		}
+		http.Error(w, "Что-то пошло не так", http.StatusInternalServerError)
+		h.lg.Error("got error in repo", zap.Error(err))
+		return
+	}
+
+	h.lg.Debug("gonna give metric with name", zap.String("name", data.ID))
+	res, err := json.Marshal(m)
+	if err != nil {
+		http.Error(w, "Что-то пошло не так", http.StatusInternalServerError)
+		h.lg.Error("got error in repo", zap.Error(err))
+		return
+	}
+
+	w.Header().Set("Content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(res)
+}
+
 func (h MetricsHandler) Update(w http.ResponseWriter, r *http.Request) {
 	mType := r.PathValue("mType")
 	mName := r.PathValue("mName")
@@ -98,7 +147,7 @@ func (h MetricsHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := h.srv.Parse(mType, mName, value)
+	data, err := h.srv.Parse(mType, mName, value, constants.Update)
 	if err != nil {
 		h.lg.Error("metrics type or value is incorrect", zap.Error(err))
 		http.Error(w, "тип или значение некорректно", http.StatusBadRequest)
