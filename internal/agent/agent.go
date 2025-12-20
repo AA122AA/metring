@@ -67,7 +67,6 @@ func (ma *MetricAgent) GatherMetrics() {
 		}
 		switch field.Type.Kind() {
 		case reflect.Uint64, reflect.Uint32:
-			m.MType = models.Counter
 			if value.CanUint() {
 				d := int64(value.Uint())
 				m.Delta = &d
@@ -76,7 +75,6 @@ func (ma *MetricAgent) GatherMetrics() {
 			}
 
 		case reflect.Float64:
-			m.MType = models.Gauge
 			if value.CanFloat() {
 				v := value.Float()
 				m.Value = &v
@@ -88,6 +86,7 @@ func (ma *MetricAgent) GatherMetrics() {
 			continue
 		}
 
+		m.MType = models.Gauge
 		ma.mm[field.Name] = m
 	}
 
