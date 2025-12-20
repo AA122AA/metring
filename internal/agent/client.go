@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -44,15 +46,61 @@ func (mc *MetricClient) Run(ctx context.Context, wg *sync.WaitGroup) {
 			mc.lg.Info("got cancellation, returning")
 			return
 		case <-ticker.C:
-			mc.SendUpdate(mc.agent.GetMetrics())
+			mc.SendUpdateJSON(mc.agent.GetMetrics())
 		}
+	}
+}
+
+func (mc *MetricClient) SendUpdateJSON(mm map[string]*Metric) {
+	for _, v := range mm {
+		u, err := buildURL(mc.baseURL, "update")
+		if err != nil {
+			mc.lg.Error("error building url", zap.Error(err))
+			continue
+		}
+
+		body, err := json.Marshal(v)
+		if err != nil {
+			mc.lg.Error("error marshling body", zap.Error(err))
+			continue
+		}
+		buf := bytes.NewBuffer(body)
+
+		req, err := http.NewRequest(http.MethodPost, u.String(), buf)
+		if err != nil {
+			mc.lg.Error("error making new request", zap.Error(err))
+			continue
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := mc.client.Do(req)
+		if err != nil {
+			mc.lg.Error("error doing request", zap.String("url", req.URL.String()), zap.Error(err))
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			mc.lg.Error("wrong status", zap.Int("status code", resp.StatusCode), zap.String("status", resp.Status))
+			continue
+		}
+		mc.lg.Debug("sent update")
 	}
 }
 
 func (mc *MetricClient) SendUpdate(mm map[string]*Metric) {
 	for k, v := range mm {
 
-		u, err := buildURL(mc.baseURL, "update", v.MType, k, v.Value)
+		// u, err := buildURL(mc.baseURL, "update", v.MType, k, v.Value)
+		var value string
+		if v.Delta != nil {
+			value = fmt.Sprintf("%v", v.Delta)
+		}
+		if v.Value != nil {
+			value = fmt.Sprintf("%v", v.Value)
+		}
+
+		u, err := buildURL(mc.baseURL, "update", v.MType, k, value)
 		if err != nil {
 			mc.lg.Error("error building url", zap.Error(err))
 			continue

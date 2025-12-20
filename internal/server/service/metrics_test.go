@@ -217,7 +217,7 @@ func TestGet(t *testing.T) {
 			mType: models.Counter,
 			mName: repository.Alloc,
 			pass:  false,
-			want:  "wrong metric type",
+			want:  "has different types between data and repo",
 		},
 	}
 

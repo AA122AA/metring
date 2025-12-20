@@ -63,7 +63,7 @@ func router(ctx context.Context, tPath string) *chi.Mux {
 		http.HandlerFunc(h.All),
 		middleware.WithLogger(zctx.From(ctx).Named("GetAll"))),
 	)
-	router.Route("/value", func(r chi.Router) {
+	router.Route("/value/", func(r chi.Router) {
 		r.Post("/", middleware.Wrap(
 			http.HandlerFunc(h.GetJSON),
 			middleware.WithLogger(zctx.From(ctx).Named("GetValueJSON"))),

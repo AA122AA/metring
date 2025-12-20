@@ -37,7 +37,7 @@ func (m *Metrics) get(data *models.MetricsJSON) (*models.Metrics, error) {
 		return nil, fmt.Errorf("err from repo: %w", err)
 	}
 	if data.MType != metric.MType {
-		return nil, fmt.Errorf("wrong metric type")
+		return nil, fmt.Errorf("metric %v, and data %v, has different types between data and repo: %v vs %v", metric.ID, data.ID, data.MType, metric.MType)
 	}
 	metric.ID = data.ID
 

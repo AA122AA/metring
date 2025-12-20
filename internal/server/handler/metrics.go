@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"strings"
 
 	"github.com/AA122AA/metring/internal/server/constants"
 	models "github.com/AA122AA/metring/internal/server/model"
@@ -80,7 +81,7 @@ func (h MetricsHandler) Get(w http.ResponseWriter, r *http.Request) {
 			h.lg.Error("no metric with provided name", zap.String("name", mName), zap.Error(err))
 			return
 		}
-		if err.Error() == "wrong metric type" {
+		if strings.Contains(err.Error(), "has different types between data and repo") {
 			http.Error(w, "No metric with this type", http.StatusNotFound)
 			h.lg.Error("no metric with provided type", zap.String("type", mType), zap.Error(err))
 			return
@@ -114,7 +115,7 @@ func (h MetricsHandler) GetJSON(w http.ResponseWriter, r *http.Request) {
 			h.lg.Error("no metric with provided name", zap.String("name", data.ID), zap.Error(err))
 			return
 		}
-		if err.Error() == "wrong metric type" {
+		if strings.Contains(err.Error(), "has different types between data and repo") {
 			http.Error(w, "No metric with this type", http.StatusNotFound)
 			h.lg.Error("no metric with provided type", zap.String("type", data.MType), zap.Error(err))
 			return
