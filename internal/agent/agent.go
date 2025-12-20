@@ -65,19 +65,17 @@ func (ma *MetricAgent) GatherMetrics() {
 		m := &Metric{
 			ID: field.Name,
 		}
+		var toValue interface{}
 		switch field.Type.Kind() {
 		case reflect.Uint64, reflect.Uint32:
 			if value.CanUint() {
-				d := int64(value.Uint())
-				m.Delta = &d
+				toValue = float64(value.Uint())
 			} else {
 				continue
 			}
-
 		case reflect.Float64:
 			if value.CanFloat() {
-				v := value.Float()
-				m.Value = &v
+				toValue = value.Float()
 			} else {
 				continue
 			}
@@ -86,6 +84,13 @@ func (ma *MetricAgent) GatherMetrics() {
 			continue
 		}
 
+		floatValue, ok := toValue.(float64)
+		if !ok {
+			ma.lg.Error("wrong assertion")
+			continue
+		}
+
+		m.Value = &floatValue
 		m.MType = models.Gauge
 		ma.mm[field.Name] = m
 	}
