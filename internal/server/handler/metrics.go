@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
@@ -171,7 +170,6 @@ func (h MetricsHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h MetricsHandler) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 	metric := models.MetricsJSON{}
 	defer r.Body.Close()
-	fmt.Printf("body type in Updatejson - %t, value - %v\n", r.Body, r.Body)
 	err := json.NewDecoder(r.Body).Decode(&metric)
 	if err != nil {
 		http.Error(w, "Что-то пошло не так", http.StatusInternalServerError)
