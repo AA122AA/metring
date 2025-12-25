@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
@@ -56,8 +57,8 @@ func (h MetricsHandler) All(w http.ResponseWriter, r *http.Request) {
 		Metrics: metrics,
 	}
 
+	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-type", "text/html")
 	templates.ExecuteTemplate(w, "metrics.html", data)
 }
 
@@ -93,7 +94,7 @@ func (h MetricsHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	h.lg.Debug("gonna give metric with name", zap.String("name", mName))
 
-	w.Header().Set("Content-type", "http/text")
+	w.Header().Set("Content-type", "text/html")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(m))
 }
@@ -170,6 +171,7 @@ func (h MetricsHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h MetricsHandler) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 	metric := models.MetricsJSON{}
 	defer r.Body.Close()
+	fmt.Printf("body type in Updatejson - %t, value - %v\n", r.Body, r.Body)
 	err := json.NewDecoder(r.Body).Decode(&metric)
 	if err != nil {
 		http.Error(w, "Что-то пошло не так", http.StatusInternalServerError)

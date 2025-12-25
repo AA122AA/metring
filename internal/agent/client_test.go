@@ -1,11 +1,13 @@
 package agent
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	models "github.com/AA122AA/metring/internal/server/model"
@@ -75,6 +77,17 @@ func TestSendJSON(t *testing.T) {
 	mux.HandleFunc("POST /update", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 		metric := &Metric{}
+		contentEncoding := r.Header.Get("Content-Encoding")
+		sendsGzip := strings.Contains(contentEncoding, "gzip")
+		if sendsGzip {
+			// оборачиваем тело запроса в io.Reader с поддержкой декомпрессии
+			cr, err := gzip.NewReader(r.Body)
+			require.NoError(t, err)
+			// меняем тело запроса на новое
+			r.Body = cr
+			defer cr.Close()
+		}
+
 		err := json.NewDecoder(r.Body).Decode(metric)
 		require.NoError(t, err)
 		fmt.Printf("got metric - %v\n", metric)

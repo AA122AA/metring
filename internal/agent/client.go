@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -64,14 +65,24 @@ func (mc *MetricClient) SendUpdateJSON(mm map[string]*Metric) {
 			mc.lg.Error("error marshling body", zap.Error(err))
 			continue
 		}
-		buf := bytes.NewBuffer(body)
 
-		req, err := http.NewRequest(http.MethodPost, u.String(), buf)
+		var buf bytes.Buffer
+		w := gzip.NewWriter(&buf)
+		_, err = w.Write(body)
+		if err != nil {
+			mc.lg.Error("error compressing body", zap.Error(err))
+			continue
+		}
+		w.Close()
+
+		req, err := http.NewRequest(http.MethodPost, u.String(), &buf)
 		if err != nil {
 			mc.lg.Error("error making new request", zap.Error(err))
 			continue
 		}
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept-Encoding", "gzip")
+		req.Header.Set("Content-Encoding", "gzip")
 
 		resp, err := mc.client.Do(req)
 		if err != nil {

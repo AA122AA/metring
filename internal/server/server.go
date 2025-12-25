@@ -60,27 +60,37 @@ func router(ctx context.Context, tPath string) *chi.Mux {
 
 	router := chi.NewRouter()
 	router.Get("/", middleware.Wrap(
-		http.HandlerFunc(h.All),
-		middleware.WithLogger(zctx.From(ctx).Named("GetAll"))),
+		middleware.Wrap(
+			http.HandlerFunc(h.All),
+			middleware.WithLogger(zctx.From(ctx).Named("GetAll"))),
+		middleware.WithCompression()),
 	)
 	router.Route("/value/", func(r chi.Router) {
 		r.Post("/", middleware.Wrap(
-			http.HandlerFunc(h.GetJSON),
-			middleware.WithLogger(zctx.From(ctx).Named("GetValueJSON"))),
+			middleware.Wrap(
+				http.HandlerFunc(h.GetJSON),
+				middleware.WithLogger(zctx.From(ctx).Named("GetValueJSON"))),
+			middleware.WithCompression()),
 		)
 		r.Get("/{mType}/{mName}", middleware.Wrap(
-			http.HandlerFunc(h.Get),
-			middleware.WithLogger(zctx.From(ctx).Named("GetValue"))),
+			middleware.Wrap(
+				http.HandlerFunc(h.Get),
+				middleware.WithLogger(zctx.From(ctx).Named("GetValue"))),
+			middleware.WithCompression()),
 		)
 	})
 	router.Route("/update", func(r chi.Router) {
 		r.Post("/", middleware.Wrap(
-			http.HandlerFunc(h.UpdateJSON),
-			middleware.WithLogger(zctx.From(ctx).Named("UpdateValueJSON"))),
+			middleware.Wrap(
+				http.HandlerFunc(h.UpdateJSON),
+				middleware.WithLogger(zctx.From(ctx).Named("UpdateValueJSON"))),
+			middleware.WithCompression()),
 		)
 		r.Post("/{mType}/{mName}/{value}", middleware.Wrap(
-			http.HandlerFunc(h.Update),
-			middleware.WithLogger(zctx.From(ctx).Named("UpdateValue"))),
+			middleware.Wrap(
+				http.HandlerFunc(h.Update),
+				middleware.WithLogger(zctx.From(ctx).Named("UpdateValue"))),
+			middleware.WithCompression()),
 		)
 	})
 

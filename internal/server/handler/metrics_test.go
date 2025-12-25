@@ -67,6 +67,7 @@ func TestGetAll(t *testing.T) {
 				require.NoError(t, err)
 
 				require.Contains(t, string(body), repository.Alloc)
+				require.Contains(t, res.Header.Get("Content-Type"), "text/html")
 				return
 			}
 			require.Equal(t, tCase.status, res.StatusCode)
