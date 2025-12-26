@@ -2,6 +2,7 @@ package saver
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/AA122AA/metring/internal/server/repository"
@@ -10,13 +11,16 @@ import (
 
 func TestLoad(t *testing.T) {
 	ctx := context.Background()
+	dir := os.TempDir()
+	file, err := os.CreateTemp(dir, "metrics.json")
+	require.NoError(t, err)
 	cfg := Config{
 		StoreInterval:   10,
-		FileStoragePath: "../../../../data/metrics.json",
+		FileStoragePath: file.Name(),
 	}
 	repo := repository.NewMemStorage()
 
 	saver := NewSaver(ctx, cfg, repo)
-	err := saver.load()
+	err = saver.load()
 	require.NoError(t, err)
 }
