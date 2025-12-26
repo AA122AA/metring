@@ -6,9 +6,14 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 
 	"github.com/AA122AA/metring/internal/server"
 	"github.com/AA122AA/metring/internal/server/config"
+	mHandler "github.com/AA122AA/metring/internal/server/handler"
+	"github.com/AA122AA/metring/internal/server/repository"
+	"github.com/AA122AA/metring/internal/server/service/metrics"
+	"github.com/AA122AA/metring/internal/server/service/saver"
 	"github.com/AA122AA/metring/internal/zapcfg"
 	"github.com/caarlos0/env"
 	"github.com/creasty/defaults"
@@ -46,17 +51,16 @@ func run() error {
 		}
 	}()
 
+	// Main context.
 	ctx, cancel := signal.NotifyContext(zctx.Base(context.Background(), lg), os.Interrupt)
 	defer cancel()
 
+	// Reading config
 	cfg := &config.Config{}
-
 	if err := defaults.Set(cfg); err != nil {
 		lg.Fatal("error setting defaults for config", zap.Error(err))
 	}
-
 	cfg.ParseConfig()
-
 	if err = env.Parse(cfg); err != nil {
 		lg.Fatal("error setting config from env", zap.Error(err))
 	}
@@ -65,9 +69,37 @@ func run() error {
 		"server config",
 		zap.String("address", cfg.HostAddr),
 		zap.String("template path", cfg.TemplatePath),
+		zap.String("file storage path", cfg.SaverCfg.FileStoragePath),
+		zap.Int("store interval", cfg.SaverCfg.StoreInterval),
+		zap.Bool("restore", cfg.SaverCfg.Restore),
 	)
 
-	server := server.NewServer(ctx, cfg)
+	// Init services
+	repo := repository.NewMemStorage()
+	srv := metrics.NewMetrics(ctx, repo)
+	saver := saver.NewSaver(ctx, cfg.SaverCfg, repo)
 
-	return server.Run(ctx)
+	// Init handlers
+	metricHandler := mHandler.NewMetricsHandler(ctx, cfg.TemplatePath, srv)
+
+	// Init routers
+	router := server.NewRouter(ctx, metricHandler)
+
+	// Init server
+	server := server.NewServer(ctx, cfg, router)
+
+	var wg sync.WaitGroup
+	go saver.Run(ctx, &wg)
+	wg.Add(1)
+	lg.Debug("Ran saver")
+
+	go server.OnShutDown(ctx, &wg)
+	wg.Add(1)
+	lg.Debug("Ran On ShutDown")
+
+	err = server.Run(ctx)
+
+	wg.Wait()
+
+	return err
 }

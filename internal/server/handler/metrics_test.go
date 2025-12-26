@@ -12,7 +12,7 @@ import (
 
 	models "github.com/AA122AA/metring/internal/server/model"
 	"github.com/AA122AA/metring/internal/server/repository"
-	"github.com/AA122AA/metring/internal/server/service"
+	"github.com/AA122AA/metring/internal/server/service/metrics"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 )
@@ -30,7 +30,7 @@ func TestGetAll(t *testing.T) {
 		{
 			name: "Positive",
 			url:  "/",
-			// tPath:  "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
+			// tPath:  "/home/artem/Documents/developm/metricsent/Yandex.Practicum/metring/internal/server/templates/*.html",
 			tPath:  "../templates/*.html",
 			status: 200,
 			repo:   repository.NewMockRepo(),
@@ -49,7 +49,7 @@ func TestGetAll(t *testing.T) {
 
 	for _, tCase := range cases {
 		t.Run(tCase.name, func(t *testing.T) {
-			srv := service.NewMetrics(ctx, tCase.repo)
+			srv := metrics.NewMetrics(ctx, tCase.repo)
 			h := NewMetricsHandler(ctx, tCase.tPath, srv)
 
 			r := httptest.NewRequest(http.MethodGet, tCase.url, nil)
@@ -122,7 +122,7 @@ func TestGet(t *testing.T) {
 	for _, tCase := range cases {
 		t.Run(tCase.name, func(t *testing.T) {
 			repo := repository.NewMockRepo()
-			srv := service.NewMetrics(ctx, repo)
+			srv := metrics.NewMetrics(ctx, repo)
 			h := NewMetricsHandler(ctx, tCase.tPath, srv)
 
 			rctx := chi.NewRouteContext()
@@ -203,7 +203,7 @@ func TestGetJSON(t *testing.T) {
 	for _, tCase := range cases {
 		t.Run(tCase.name, func(t *testing.T) {
 			repo := repository.NewMockRepo()
-			srv := service.NewMetrics(ctx, repo)
+			srv := metrics.NewMetrics(ctx, repo)
 			h := NewMetricsHandler(ctx, tCase.tPath, srv)
 
 			body, err := json.Marshal(tCase.metric)
@@ -289,7 +289,7 @@ func TestUpdate(t *testing.T) {
 	for _, tCase := range cases {
 		t.Run(tCase.name, func(t *testing.T) {
 			repo := repository.NewMockRepo()
-			srv := service.NewMetrics(ctx, repo)
+			srv := metrics.NewMetrics(ctx, repo)
 			h := NewMetricsHandler(ctx, tCase.tPath, srv)
 
 			r := httptest.NewRequest(http.MethodPost, tCase.url, nil)
@@ -380,7 +380,7 @@ func TestUpdateJSON(t *testing.T) {
 	for _, tCase := range cases {
 		t.Run(tCase.name, func(t *testing.T) {
 			repo := repository.NewMockRepo()
-			srv := service.NewMetrics(ctx, repo)
+			srv := metrics.NewMetrics(ctx, repo)
 			h := NewMetricsHandler(ctx, tCase.tPath, srv)
 
 			body, err := json.Marshal(tCase.metric)

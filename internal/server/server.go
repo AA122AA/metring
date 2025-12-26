@@ -5,59 +5,63 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/AA122AA/metring/internal/server/config"
-	"github.com/AA122AA/metring/internal/server/handler"
 	"github.com/AA122AA/metring/internal/server/middleware"
-	"github.com/AA122AA/metring/internal/server/repository"
-	"github.com/AA122AA/metring/internal/server/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-faster/sdk/zctx"
 	"go.uber.org/zap"
 )
+
+type metricsHandler interface {
+	All(w http.ResponseWriter, r *http.Request)
+	Get(w http.ResponseWriter, r *http.Request)
+	GetJSON(w http.ResponseWriter, r *http.Request)
+	Update(w http.ResponseWriter, r *http.Request)
+	UpdateJSON(w http.ResponseWriter, r *http.Request)
+}
 
 type Server struct {
 	srv *http.Server
 	lg  *zap.Logger
 }
 
-func NewServer(ctx context.Context, cfg *config.Config) *Server {
+func NewServer(ctx context.Context, cfg *config.Config, router http.Handler) *Server {
 	return &Server{
 		srv: &http.Server{
 			Addr:    cfg.HostAddr,
-			Handler: router(ctx, cfg.TemplatePath),
+			Handler: router,
 		},
 		lg: zctx.From(ctx).Named("server"),
 	}
 }
 
-func (s *Server) Run(ctx context.Context) error {
-	go func() {
-		<-ctx.Done()
-		if s.srv != nil {
-			if err := s.srv.Shutdown(ctx); err != nil {
-				s.lg.Fatal("failed to shutdown http server", zap.Error(err))
-			}
-			s.lg.Info("shutdown http server")
+func (s *Server) OnShutDown(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	<-ctx.Done()
+	if s.srv != nil {
+		if err := s.srv.Shutdown(ctx); err != nil {
+			s.lg.Fatal("failed to shutdown http server", zap.Error(err))
 		}
-	}()
+		s.lg.Info("shutdown http server")
+	}
+}
+
+func (s *Server) Run(ctx context.Context) error {
 	port := ":" + strings.Split(s.srv.Addr, ":")[1]
 	listener, err := net.Listen("tcp", port)
 	if err != nil {
 		s.lg.Fatal("failed to create listener", zap.Error(err))
 	}
-	s.lg.Info(listener.Addr().String())
+	s.lg.Debug(listener.Addr().String())
 
 	s.lg.Info("Start server on", zap.String("addr", s.srv.Addr))
 
 	return s.srv.Serve(listener)
 }
 
-func router(ctx context.Context, tPath string) *chi.Mux {
-	repo := repository.NewMemStorage()
-	srv := service.NewMetrics(ctx, repo)
-	h := handler.NewMetricsHandler(ctx, tPath, srv)
-
+func NewRouter(ctx context.Context, h metricsHandler) *chi.Mux {
 	router := chi.NewRouter()
 	router.Get("/", middleware.Wrap(
 		middleware.Wrap(
