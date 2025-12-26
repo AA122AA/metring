@@ -3,9 +3,11 @@ package config
 import (
 	"flag"
 	"fmt"
+	"log"
 
 	"github.com/AA122AA/metring/internal/flags"
 	"github.com/AA122AA/metring/internal/server/service/saver"
+	"github.com/caarlos0/env"
 )
 
 type Config struct {
@@ -44,4 +46,13 @@ func (c *Config) ParseConfig() {
 	)
 	fmt.Printf("file storage in Parseconfig: %v\n", c.SaverCfg.FileStoragePath)
 	flag.Parse()
+}
+
+func (c *Config) LoadEnv() {
+	if err := env.Parse(c); err != nil {
+		log.Fatalf("error setting config from env: %v", err)
+	}
+	if err := env.Parse(&c.SaverCfg); err != nil {
+		log.Fatalf("error setting saver config from env: %v", err)
+	}
 }

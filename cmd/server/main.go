@@ -15,7 +15,6 @@ import (
 	"github.com/AA122AA/metring/internal/server/service/metrics"
 	"github.com/AA122AA/metring/internal/server/service/saver"
 	"github.com/AA122AA/metring/internal/zapcfg"
-	"github.com/caarlos0/env"
 	"github.com/creasty/defaults"
 	"github.com/go-faster/sdk/zctx"
 	"go.uber.org/zap"
@@ -61,9 +60,7 @@ func run() error {
 		lg.Fatal("error setting defaults for config", zap.Error(err))
 	}
 	cfg.ParseConfig()
-	if err = env.Parse(cfg); err != nil {
-		lg.Fatal("error setting config from env", zap.Error(err))
-	}
+	cfg.LoadEnv()
 
 	lg.Debug(
 		"server config",
