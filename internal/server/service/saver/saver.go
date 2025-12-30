@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -15,6 +16,8 @@ import (
 	"github.com/go-faster/sdk/zctx"
 	"go.uber.org/zap"
 )
+
+type Metrics []*models.Metrics
 
 type Saver struct {
 	StoreInterval   int
@@ -35,35 +38,89 @@ func NewSaver(ctx context.Context, cfg Config, repo repository.MetricsRepository
 	}
 }
 
-func (s *Saver) load() error {
-	file, err := os.Open(s.FileStoragePath)
+func (s *Saver) Run(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	if s.Restore {
+		s.restore()
+	}
+
+	if s.StoreInterval == 0 {
+		return
+	}
+
+	ticker := time.NewTicker(time.Duration(s.StoreInterval) * time.Second)
+
+	// err := s.store()
+	// if err != nil {
+	// 	s.lg.Error("error while storing", zap.Error(err))
+	// }
+
+	for {
+		select {
+		case <-ctx.Done():
+			s.lg.Info("got cancellation, returning")
+			return
+		case <-ticker.C:
+			err := s.store()
+			if err != nil {
+				s.lg.Error("error while storing", zap.Error(err))
+			}
+		}
+	}
+}
+
+func (s *Saver) WriteSync(data *models.MetricsJSON) error {
+	if s.StoreInterval != 0 {
+		return nil
+	}
+	metric := models.TransformFromJSON(data)
+
+	var pathErr *os.PathError
+	metrics, err := s.readFromFile()
 	if err != nil {
-		return fmt.Errorf("can not load file: %w", err)
+		if !errors.As(err, &pathErr) {
+			return fmt.Errorf("failed to read from file: %w", err)
+		}
+		metrics = make(Metrics, 1)
+		metrics[0] = metric
+
+		err = s.writeToFile(metrics)
+		if err != nil {
+			return fmt.Errorf("failed to write to file: %w", err)
+		}
+
+		return nil
 	}
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		data := scanner.Text()
-		if data == "[" || data == "]" {
-			continue
-		}
-		data, _ = strings.CutSuffix(data, ",")
-
-		var metric models.Metrics
-		err := json.Unmarshal([]byte(data), &metric)
-		if err != nil {
-			return fmt.Errorf("error while unmarshaling: %w", err)
-		}
-
-		err = s.repo.Write(metric.ID, &metric)
-		if err != nil {
-			return fmt.Errorf("error while writing to repo: %w", err)
-		}
+	if index, ok := contains(metrics, metric); ok {
+		metrics[index].Delta = metric.Delta
+		metrics[index].Value = metric.Value
+	} else {
+		metrics = append(metrics, metric)
 	}
 
-	s.lg.Debug("loaded data")
+	err = s.writeToFile(metrics)
+	if err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
+	}
 
 	return nil
+}
+
+func contains(metrics []*models.Metrics, metric *models.Metrics) (int, bool) {
+	for i, m := range metrics {
+		if m.ID == metric.ID {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func (s *Saver) restore() {
+	err := s.load()
+	if err != nil {
+		s.lg.Error("error while restoring data from file", zap.Error(err))
+	}
 }
 
 func (s *Saver) store() error {
@@ -75,35 +132,12 @@ func (s *Saver) store() error {
 		return fmt.Errorf("err while getting metrics from repo: %w", err)
 	}
 
-	file, err := os.OpenFile(s.FileStoragePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o666)
-	if err != nil {
-		return fmt.Errorf("err while creating file: %w", err)
-	}
-	defer file.Close()
-
-	_, err = file.WriteString("[\n")
-	if err != nil {
-		return fmt.Errorf("err while writing to file: %w", err)
-	}
-
-	i := 0
+	metrics := make(Metrics, 0, len(data))
 	for _, v := range data {
-		i++
-		metric, err := json.Marshal(&v)
-		if err != nil {
-			return fmt.Errorf("err while encoding data: %w", err)
-		}
-		if i != len(data) {
-			metric = append(metric, ',')
-		}
-		metric = append(metric, '\n')
-		_, err = file.Write(metric)
-		if err != nil {
-			return fmt.Errorf("err while writing to file: %w", err)
-		}
+		metrics = append(metrics, v)
 	}
 
-	_, err = file.WriteString("]")
+	err = s.writeToFile(metrics)
 	if err != nil {
 		return fmt.Errorf("err while writing to file: %w", err)
 	}
@@ -113,26 +147,55 @@ func (s *Saver) store() error {
 	return nil
 }
 
-func (s *Saver) Run(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-	ticker := time.NewTicker(time.Duration(s.StoreInterval) * time.Second)
-	if s.Restore {
-		err := s.load()
-		if err != nil {
-			s.lg.Error("error while restoring data from file", zap.Error(err))
-		}
-	}
-	err := s.store()
+func (s *Saver) load() error {
+	metrics, err := s.readFromFile()
 	if err != nil {
-		s.lg.Error("error while storing", zap.Error(err))
+		return fmt.Errorf("failed to read from file: %w", err)
 	}
-	for {
-		select {
-		case <-ctx.Done():
-			s.lg.Info("got cancellation, returning")
-			return
-		case <-ticker.C:
-			s.store()
-		}
+
+	for _, m := range metrics {
+		s.repo.Write(m.ID, m)
 	}
+
+	s.lg.Debug("loaded data")
+
+	return nil
+}
+
+func (s *Saver) writeToFile(metrics Metrics) error {
+	file, err := os.OpenFile(s.FileStoragePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o666)
+	if err != nil {
+		return fmt.Errorf("err while creating file: %w", err)
+	}
+	defer file.Close()
+
+	enc := json.NewEncoder(file)
+	enc.SetIndent("", "    ")
+	err = enc.Encode(metrics)
+	if err != nil {
+		return fmt.Errorf("err while marshalling data: %w", err)
+	}
+	return nil
+}
+
+func (s *Saver) readFromFile() (Metrics, error) {
+	file, err := os.Open(s.FileStoragePath)
+	if err != nil {
+		return nil, fmt.Errorf("can not load file: %w", err)
+	}
+	defer file.Close()
+
+	reader := bufio.NewReader(file)
+	data, err := reader.ReadBytes(']')
+	if err != nil {
+		return nil, fmt.Errorf("failed to read from file: %w", err)
+	}
+
+	var metrics Metrics
+	err = json.Unmarshal(data, &metrics)
+	if err != nil {
+		return nil, fmt.Errorf("error while unmarshaling: %w", err)
+	}
+
+	return metrics, nil
 }

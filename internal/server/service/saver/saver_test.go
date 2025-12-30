@@ -10,10 +10,28 @@ import (
 )
 
 func TestLoad(t *testing.T) {
+	testJson := `
+[
+    {
+        "id": "PauseTotalNs",
+        "type": "gauge",
+        "value": 0
+    },
+    {
+        "id": "GCSys",
+        "type": "gauge",
+        "value": 1737440
+    }
+]`
 	ctx := context.Background()
 	dir := os.TempDir()
 	file, err := os.CreateTemp(dir, "metrics.json")
 	require.NoError(t, err)
+
+	_, err = file.WriteString(testJson)
+	require.NoError(t, err)
+	defer file.Close()
+
 	cfg := Config{
 		StoreInterval:   10,
 		FileStoragePath: file.Name(),

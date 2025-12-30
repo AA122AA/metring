@@ -57,13 +57,13 @@ func main() {
 	var wg sync.WaitGroup
 
 	mAgent := agent.NewMetricAgent(ctx, cfg)
-	go mAgent.Run(ctx, &wg)
 	wg.Add(1)
+	go mAgent.Run(ctx, &wg)
 	lg.Info("Ran agent")
 
 	client := agent.NewMetricClient(ctx, mAgent, cfg)
-	go client.Run(ctx, &wg)
 	wg.Add(1)
+	go client.Run(ctx, &wg)
 	lg.Info("Ran client")
 
 	wg.Wait()

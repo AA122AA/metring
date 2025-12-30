@@ -22,14 +22,20 @@ type Metrics interface {
 	GetAll() (map[string]*models.Metrics, error)
 }
 
+type Saver interface {
+	WriteSync(data *models.MetricsJSON) error
+}
+
 type MetricsHandler struct {
 	srv      Metrics
+	saver    Saver
 	lg       *zap.Logger
 	tmplPath string
 }
 
-func NewMetricsHandler(ctx context.Context, tPath string, srv Metrics) *MetricsHandler {
+func NewMetricsHandler(ctx context.Context, tPath string, srv Metrics, saver Saver) *MetricsHandler {
 	return &MetricsHandler{
+		saver:    saver,
 		srv:      srv,
 		lg:       zctx.From(ctx).Named("metrics handler"),
 		tmplPath: tPath,
@@ -162,6 +168,13 @@ func (h MetricsHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = h.saver.WriteSync(data)
+	if err != nil {
+		h.lg.Error("error while writing to file", zap.Error(err))
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+
 	h.lg.Debug("got new metric", zap.String("name", mName), zap.String("value", value))
 
 	w.WriteHeader(http.StatusOK)
@@ -181,6 +194,13 @@ func (h MetricsHandler) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.lg.Error("metrics type or value is incorrect")
 		http.Error(w, "тип или значение некорректно", http.StatusBadRequest)
+		return
+	}
+
+	err = h.saver.WriteSync(&metric)
+	if err != nil {
+		h.lg.Error("error while writing to file", zap.Error(err))
+		http.Error(w, "Something went wrong", http.StatusInternalServerError)
 		return
 	}
 

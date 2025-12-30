@@ -77,7 +77,7 @@ func run() error {
 	saver := saver.NewSaver(ctx, cfg.SaverCfg, repo)
 
 	// Init handlers
-	metricHandler := mHandler.NewMetricsHandler(ctx, cfg.TemplatePath, srv)
+	metricHandler := mHandler.NewMetricsHandler(ctx, cfg.TemplatePath, srv, saver)
 
 	// Init routers
 	router := server.NewRouter(ctx, metricHandler)
@@ -86,12 +86,12 @@ func run() error {
 	server := server.NewServer(ctx, cfg, router)
 
 	var wg sync.WaitGroup
-	go saver.Run(ctx, &wg)
 	wg.Add(1)
+	go saver.Run(ctx, &wg)
 	lg.Debug("Ran saver")
 
-	go server.OnShutDown(ctx, &wg)
 	wg.Add(1)
+	go server.OnShutDown(ctx, &wg)
 	lg.Debug("Ran On ShutDown")
 
 	err = server.Run(ctx)

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"maps"
 	"math/rand/v2"
 	"reflect"
 	"runtime"
@@ -114,5 +115,6 @@ func (ma *MetricAgent) GatherMetrics() {
 func (ma *MetricAgent) GetMetrics() map[string]*Metric {
 	ma.mu.Lock()
 	defer ma.mu.Unlock()
-	return ma.mm
+
+	return maps.Clone(ma.mm)
 }

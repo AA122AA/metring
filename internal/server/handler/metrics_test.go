@@ -7,17 +7,28 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
 	models "github.com/AA122AA/metring/internal/server/model"
 	"github.com/AA122AA/metring/internal/server/repository"
 	"github.com/AA122AA/metring/internal/server/service/metrics"
+	"github.com/AA122AA/metring/internal/server/service/saver"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGetAll(t *testing.T) {
+	dir := os.TempDir()
+	file, err := os.CreateTemp(dir, "metrics.json")
+	require.NoError(t, err)
+	cfg := saver.Config{
+		StoreInterval:   10,
+		FileStoragePath: file.Name(),
+		Restore:         true,
+	}
+
 	ctx := context.Background()
 	cases := []struct {
 		name   string
@@ -50,7 +61,8 @@ func TestGetAll(t *testing.T) {
 	for _, tCase := range cases {
 		t.Run(tCase.name, func(t *testing.T) {
 			srv := metrics.NewMetrics(ctx, tCase.repo)
-			h := NewMetricsHandler(ctx, tCase.tPath, srv)
+			saver := saver.NewSaver(ctx, cfg, tCase.repo)
+			h := NewMetricsHandler(ctx, tCase.tPath, srv, saver)
 
 			r := httptest.NewRequest(http.MethodGet, tCase.url, nil)
 
@@ -76,6 +88,15 @@ func TestGetAll(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
+	dir := os.TempDir()
+	file, err := os.CreateTemp(dir, "metrics.json")
+	require.NoError(t, err)
+	cfg := saver.Config{
+		StoreInterval:   10,
+		FileStoragePath: file.Name(),
+		Restore:         true,
+	}
+
 	ctx := context.Background()
 	cases := []struct {
 		name   string
@@ -123,7 +144,8 @@ func TestGet(t *testing.T) {
 		t.Run(tCase.name, func(t *testing.T) {
 			repo := repository.NewMockRepo()
 			srv := metrics.NewMetrics(ctx, repo)
-			h := NewMetricsHandler(ctx, tCase.tPath, srv)
+			saver := saver.NewSaver(ctx, cfg, repo)
+			h := NewMetricsHandler(ctx, tCase.tPath, srv, saver)
 
 			rctx := chi.NewRouteContext()
 			rctx.URLParams.Add("mName", tCase.mName)
@@ -152,6 +174,14 @@ func TestGet(t *testing.T) {
 }
 
 func TestGetJSON(t *testing.T) {
+	dir := os.TempDir()
+	file, err := os.CreateTemp(dir, "metrics.json")
+	require.NoError(t, err)
+	cfg := saver.Config{
+		StoreInterval:   10,
+		FileStoragePath: file.Name(),
+		Restore:         true,
+	}
 	ctx := context.Background()
 	cases := []struct {
 		name   string
@@ -204,7 +234,8 @@ func TestGetJSON(t *testing.T) {
 		t.Run(tCase.name, func(t *testing.T) {
 			repo := repository.NewMockRepo()
 			srv := metrics.NewMetrics(ctx, repo)
-			h := NewMetricsHandler(ctx, tCase.tPath, srv)
+			saver := saver.NewSaver(ctx, cfg, repo)
+			h := NewMetricsHandler(ctx, tCase.tPath, srv, saver)
 
 			body, err := json.Marshal(tCase.metric)
 			require.NoError(t, err)
@@ -232,6 +263,14 @@ func TestGetJSON(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
+	dir := os.TempDir()
+	file, err := os.CreateTemp(dir, "metrics.json")
+	require.NoError(t, err)
+	cfg := saver.Config{
+		StoreInterval:   10,
+		FileStoragePath: file.Name(),
+		Restore:         true,
+	}
 	ctx := context.Background()
 	cases := []struct {
 		name       string
@@ -290,7 +329,8 @@ func TestUpdate(t *testing.T) {
 		t.Run(tCase.name, func(t *testing.T) {
 			repo := repository.NewMockRepo()
 			srv := metrics.NewMetrics(ctx, repo)
-			h := NewMetricsHandler(ctx, tCase.tPath, srv)
+			saver := saver.NewSaver(ctx, cfg, repo)
+			h := NewMetricsHandler(ctx, tCase.tPath, srv, saver)
 
 			r := httptest.NewRequest(http.MethodPost, tCase.url, nil)
 			r.SetPathValue("mName", tCase.mName)
@@ -317,6 +357,14 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestUpdateJSON(t *testing.T) {
+	dir := os.TempDir()
+	file, err := os.CreateTemp(dir, "metrics.json")
+	require.NoError(t, err)
+	cfg := saver.Config{
+		StoreInterval:   10,
+		FileStoragePath: file.Name(),
+		Restore:         true,
+	}
 	v := float64(1.25)
 	ctx := context.Background()
 	cases := []struct {
@@ -381,7 +429,8 @@ func TestUpdateJSON(t *testing.T) {
 		t.Run(tCase.name, func(t *testing.T) {
 			repo := repository.NewMockRepo()
 			srv := metrics.NewMetrics(ctx, repo)
-			h := NewMetricsHandler(ctx, tCase.tPath, srv)
+			saver := saver.NewSaver(ctx, cfg, repo)
+			h := NewMetricsHandler(ctx, tCase.tPath, srv, saver)
 
 			body, err := json.Marshal(tCase.metric)
 			require.NoError(t, err)

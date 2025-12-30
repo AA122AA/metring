@@ -41,7 +41,7 @@ func (c *Config) ParseConfig() {
 	flag.BoolVar(
 		&c.SaverCfg.Restore,
 		"r",
-		false,
+		true,
 		"should server restore old metrics or not",
 	)
 	fmt.Printf("file storage in Parseconfig: %v\n", c.SaverCfg.FileStoragePath)
