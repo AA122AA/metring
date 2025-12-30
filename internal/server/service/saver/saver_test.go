@@ -10,7 +10,7 @@ import (
 )
 
 func TestLoad(t *testing.T) {
-	testJson := `
+	testJSON := `
 [
     {
         "id": "PauseTotalNs",
@@ -28,7 +28,7 @@ func TestLoad(t *testing.T) {
 	file, err := os.CreateTemp(dir, "metrics.json")
 	require.NoError(t, err)
 
-	_, err = file.WriteString(testJson)
+	_, err = file.WriteString(testJSON)
 	require.NoError(t, err)
 	defer file.Close()
 
