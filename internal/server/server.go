@@ -22,6 +22,10 @@ type metricsHandler interface {
 	UpdateJSON(w http.ResponseWriter, r *http.Request)
 }
 
+type pingHandler interface {
+	Ping(w http.ResponseWriter, r *http.Request)
+}
+
 type Server struct {
 	srv *http.Server
 	lg  *zap.Logger
@@ -61,13 +65,17 @@ func (s *Server) Run(ctx context.Context) error {
 	return s.srv.Serve(listener)
 }
 
-func NewRouter(ctx context.Context, h metricsHandler) *chi.Mux {
+func NewRouter(ctx context.Context, h metricsHandler, p pingHandler) *chi.Mux {
 	router := chi.NewRouter()
 	router.Get("/", middleware.Wrap(
 		middleware.Wrap(
 			http.HandlerFunc(h.All),
 			middleware.WithLogger(zctx.From(ctx).Named("GetAll"))),
 		middleware.WithCompression()),
+	)
+	router.Get("/ping", middleware.Wrap(
+		http.HandlerFunc(p.Ping),
+		middleware.WithLogger(zctx.From(ctx).Named("GetAll"))),
 	)
 	router.Route("/value/", func(r chi.Router) {
 		r.Post("/", middleware.Wrap(
