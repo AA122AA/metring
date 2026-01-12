@@ -5,7 +5,7 @@ build-agent:
 	/usr/local/go/bin/go build -o ./cmd/agent/agent ./cmd/agent/main.go
 
 run-server: build-server
-	./cmd/server/server -a "localhost:8080" -i 10
+	./cmd/server/server -a "localhost:8080" -i 10 -d "postgresql://metring:StrongPass123!@localhost:5432/metring"
 
 run-agent: build-server
 	./cmd/agent/agent -a "localhost:8080" -r 4
@@ -76,4 +76,20 @@ autotest-9: build-server build-agent
             -server-port=8080 \
             -source-path=.
 
-autotests: build-server build-agent autotest-1 autotest-2 autotest-3 autotest-4 autotest-5 autotest-6 autotest-7 autotest-8 autotest-9
+autotest-10: build-server build-agent
+	./metricstest_v2 -test.v -test.run=^TestIteration10A$$ \
+            -agent-binary-path=cmd/agent/agent \
+            -binary-path=cmd/server/server \
+            -file-storage-path="data/metrics.json" \
+            -database-dsn='postgres://metring:StrongPass123!@localhost:5432/metring?sslmode=disable' \
+            -server-port=8080 \
+            -source-path=.
+	./metricstest_v2 -test.v -test.run=^TestIteration10B$$ \
+	        -agent-binary-path=cmd/agent/agent \
+			-binary-path=cmd/server/server \
+            -file-storage-path="data/metrics.json" \
+            -database-dsn='postgres://metring:StrongPass123!@localhost:5432/metring?sslmode=disable' \
+            -server-port=8080 \
+            -source-path=.
+
+autotests: build-server build-agent autotest-1 autotest-2 autotest-3 autotest-4 autotest-5 autotest-6 autotest-7 autotest-8 autotest-9 autotest-10

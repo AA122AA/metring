@@ -18,6 +18,7 @@ import (
 	"github.com/AA122AA/metring/internal/zapcfg"
 	"github.com/creasty/defaults"
 	"github.com/go-faster/sdk/zctx"
+	_ "github.com/jackc/pgx"
 	"go.uber.org/zap"
 )
 

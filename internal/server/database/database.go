@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	"github.com/go-faster/sdk/zctx"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 )
 
@@ -16,6 +17,8 @@ type Database struct {
 func New(ctx context.Context, driver, dsn string) *Database {
 	logger := zctx.From(ctx).Named("Database")
 	database, err := sql.Open(driver, dsn)
+	// dsnTest := "postgresql://metring:StrongPass123!@localhost:5432/metring"
+	// database, err := sql.Open(driver, dsnTest)
 	if err != nil {
 		logger.Fatal("Cannot open db", zap.Error(err))
 	}
