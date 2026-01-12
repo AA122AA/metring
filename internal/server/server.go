@@ -75,7 +75,7 @@ func NewRouter(ctx context.Context, h metricsHandler, p pingHandler) *chi.Mux {
 	)
 	router.Get("/ping", middleware.Wrap(
 		http.HandlerFunc(p.Ping),
-		middleware.WithLogger(zctx.From(ctx).Named("GetAll"))),
+		middleware.WithLogger(zctx.From(ctx).Named("Ping"))),
 	)
 	router.Route("/value/", func(r chi.Router) {
 		r.Post("/", middleware.Wrap(

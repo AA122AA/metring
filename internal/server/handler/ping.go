@@ -2,19 +2,19 @@ package handler
 
 import (
 	"context"
-	"database/sql"
 	"net/http"
 
+	"github.com/AA122AA/metring/internal/server/database"
 	"github.com/go-faster/sdk/zctx"
 	"go.uber.org/zap"
 )
 
 type PingHandler struct {
-	db *sql.DB
+	db *database.Database
 	lg *zap.Logger
 }
 
-func NewPingHandler(ctx context.Context, db *sql.DB) *PingHandler {
+func NewPingHandler(ctx context.Context, db *database.Database) *PingHandler {
 	return &PingHandler{
 		db: db,
 		lg: zctx.From(ctx).Named("Ping handler"),

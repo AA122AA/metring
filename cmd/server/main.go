@@ -10,6 +10,7 @@ import (
 
 	"github.com/AA122AA/metring/internal/server"
 	"github.com/AA122AA/metring/internal/server/config"
+	"github.com/AA122AA/metring/internal/server/database"
 	mHandler "github.com/AA122AA/metring/internal/server/handler"
 	"github.com/AA122AA/metring/internal/server/repository"
 	"github.com/AA122AA/metring/internal/server/service/metrics"
@@ -71,16 +72,26 @@ func run() error {
 		zap.Bool("restore", cfg.SaverCfg.Restore),
 	)
 
-	// Init services
+	// Init DB
+	dBase := database.New(ctx, "pgx", cfg.DatabaseDSN)
+	if err != nil {
+		lg.Fatal("can not connect to db", zap.Error(err))
+	}
+
+	// Init repos
 	repo := repository.NewMemStorage()
+	// dbrepo := repository.NewPSQLStorege()
+
+	// Init services
 	srv := metrics.NewMetrics(ctx, repo)
 	saver := saver.NewSaver(ctx, cfg.SaverCfg, repo)
 
 	// Init handlers
 	metricHandler := mHandler.NewMetricsHandler(ctx, cfg.TemplatePath, srv, saver)
+	pingHandler := mHandler.NewPingHandler(ctx, dBase)
 
 	// Init routers
-	router := server.NewRouter(ctx, metricHandler)
+	router := server.NewRouter(ctx, metricHandler, pingHandler)
 
 	// Init server
 	server := server.NewServer(ctx, cfg, router)
