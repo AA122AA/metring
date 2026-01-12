@@ -19,6 +19,9 @@ cmd/server/main
 cmd/server/server
 bin/
 
+# programs output
+data/
+
 # Dependency directories (remove the comment below to include it)
 vendor/
 

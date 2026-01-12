@@ -1,6 +1,7 @@
 package zapcfg
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -31,15 +32,9 @@ func consoleColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder
 	}
 }
 
-// consoleDeltaEncoder colorfully encodes delta from start in seconds and milliseconds.
 func consoleDeltaEncoder(now time.Time) zapcore.TimeEncoder {
 	return func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		duration := t.Sub(now)
-		seconds := duration / time.Second
-		milliseconds := (duration % time.Second) / time.Millisecond
-		secColor := color.New(color.Faint)
-		msecColor := color.New(color.FgHiBlack)
-		enc.AppendString(secColor.Sprintf("%03d", seconds) + msecColor.Sprintf(".%02d", milliseconds/10))
+		enc.AppendString(now.Format("2006-01-02 15:04:05"))
 	}
 }
 
@@ -49,15 +44,10 @@ func NewDev() zap.Config {
 	cfg.DisableCaller = true
 	cfg.EncoderConfig.EncodeLevel = consoleColorLevelEncoder
 	cfg.EncoderConfig.EncodeTime = consoleDeltaEncoder(time.Now())
-	cfg.Level = AtomLvl
+	cfg.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	cfg.EncoderConfig.ConsoleSeparator = " "
 	cfg.EncoderConfig.EncodeName = func(s string, encoder zapcore.PrimitiveArrayEncoder) {
 		name := s
-		//const maxChars = 16
-		//if len(name) > maxChars {
-		//  name = name[:maxChars]
-		//}
-		//format := "%-" + strconv.Itoa(maxChars) + "s"
 		encoder.AppendString(color.New(color.FgHiBlue).Sprint(name))
 	}
 	return cfg
@@ -77,6 +67,7 @@ func NewProd() zap.Config {
 
 func New() zap.Config {
 	if term.IsTerminal(int(os.Stderr.Fd())) {
+		fmt.Println("Running in Terminal")
 		return NewDev()
 	}
 	return NewProd()

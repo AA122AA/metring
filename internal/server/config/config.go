@@ -1,32 +1,58 @@
 package config
 
 import (
-	"context"
 	"flag"
+	"fmt"
+	"log"
 
 	"github.com/AA122AA/metring/internal/flags"
-	"github.com/go-faster/sdk/zctx"
+	"github.com/AA122AA/metring/internal/server/service/saver"
+	"github.com/caarlos0/env"
 )
 
 type Config struct {
-	HostAddr     string `json:"hostAddr" yaml:"hostAddr"`
-	TemplatePath string `json:"templatePath" yaml:"templatePath"`
+	HostAddr     string `json:"hostAddr" yaml:"hostAddr" env:"ADDRESS" default:"localhost:8080"`
+	TemplatePath string `json:"templatePath" yaml:"templatePath" env:"TEMPLATE_PATH" default:"internal/server/templates/*.html"`
+	SaverCfg     saver.Config
 }
 
-func (c *Config) ParseConfig(ctx context.Context) {
-	lg := zctx.From(ctx).Named("server config parseConfig")
+func (c *Config) ParseConfig() {
 	flag.Func("a", "ip:port where server will serve", func(flagArgs string) error {
 		return flags.ParseAddr(flagArgs, &c.HostAddr)
 	})
-	flag.String(
+	flag.StringVar(
+		&c.TemplatePath,
 		"templates",
-		"/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
+		"internal/server/templates/*.html",
 		"dir where html templates are stored",
 	)
+	flag.IntVar(
+		&c.SaverCfg.StoreInterval,
+		"i",
+		300,
+		"store interval - time to save metrics to disk",
+	)
+	flag.StringVar(
+		&c.SaverCfg.FileStoragePath,
+		"f",
+		"data/metrics.json",
+		"file where old metrics are stored",
+	)
+	flag.BoolVar(
+		&c.SaverCfg.Restore,
+		"r",
+		true,
+		"should server restore old metrics or not",
+	)
+	fmt.Printf("file storage in Parseconfig: %v\n", c.SaverCfg.FileStoragePath)
 	flag.Parse()
+}
 
-	if c.HostAddr == "" {
-		lg.Debug("address was not specified, using default - localhost:8080")
-		c.HostAddr = "localhost:8080"
+func (c *Config) LoadEnv() {
+	if err := env.Parse(c); err != nil {
+		log.Fatalf("error setting config from env: %v", err)
+	}
+	if err := env.Parse(&c.SaverCfg); err != nil {
+		log.Fatalf("error setting saver config from env: %v", err)
 	}
 }
