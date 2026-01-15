@@ -5,25 +5,26 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/AA122AA/metring/internal/server/constants"
-	models "github.com/AA122AA/metring/internal/server/model"
+	"github.com/AA122AA/metring/internal/server/domain"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-faster/sdk/zctx"
 	"go.uber.org/zap"
 )
 
 type Metrics interface {
-	Parse(mType string, mName string, value string, handler string) (*models.MetricsJSON, error)
-	Update(metric *models.MetricsJSON) error
-	Get(metric *models.MetricsJSON) (string, error)
-	GetJSON(metric *models.MetricsJSON) (*models.MetricsJSON, error)
-	GetAll() (map[string]*models.Metrics, error)
+	Parse(mType string, mName string, value string, handler string) (*domain.MetricsJSON, error)
+	Update(ctx context.Context, metric *domain.MetricsJSON) error
+	Get(ctx context.Context, metric *domain.MetricsJSON) (string, error)
+	GetJSON(ctx context.Context, metric *domain.MetricsJSON) (*domain.MetricsJSON, error)
+	GetAll(ctx context.Context) (map[string]*domain.Metrics, error)
 }
 
 type Saver interface {
-	WriteSync(data *models.MetricsJSON) error
+	WriteSync(data *domain.MetricsJSON) error
 }
 
 type MetricsHandler struct {
@@ -34,12 +35,19 @@ type MetricsHandler struct {
 }
 
 func NewMetricsHandler(ctx context.Context, tPath string, srv Metrics, saver Saver) *MetricsHandler {
-	return &MetricsHandler{
-		saver:    saver,
+	h := &MetricsHandler{
 		srv:      srv,
 		lg:       zctx.From(ctx).Named("metrics handler"),
 		tmplPath: tPath,
 	}
+
+	v := reflect.ValueOf(saver)
+	if v.Kind() == reflect.Ptr && v.IsNil() {
+		saver = nil
+	}
+	h.saver = saver
+
+	return h
 }
 
 func (h MetricsHandler) All(w http.ResponseWriter, r *http.Request) {
@@ -50,14 +58,14 @@ func (h MetricsHandler) All(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metrics, err := h.srv.GetAll()
+	metrics, err := h.srv.GetAll(r.Context())
 	if err != nil {
 		h.lg.Error("service returned no data", zap.Error(err))
 		http.Error(w, "no data", http.StatusNotFound)
 		return
 	}
 	data := struct {
-		Metrics map[string]*models.Metrics
+		Metrics map[string]*domain.Metrics
 	}{
 		Metrics: metrics,
 	}
@@ -80,7 +88,7 @@ func (h MetricsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m, err := h.srv.Get(data)
+	m, err := h.srv.Get(r.Context(), data)
 	if err != nil {
 		if err.Error() == "err from repo: data not found" {
 			http.Error(w, "No metric with this name", http.StatusNotFound)
@@ -105,7 +113,7 @@ func (h MetricsHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h MetricsHandler) GetJSON(w http.ResponseWriter, r *http.Request) {
-	data := models.MetricsJSON{}
+	data := domain.MetricsJSON{}
 	defer r.Body.Close()
 	err := json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
@@ -114,7 +122,7 @@ func (h MetricsHandler) GetJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m, err := h.srv.GetJSON(&data)
+	m, err := h.srv.GetJSON(r.Context(), &data)
 	if err != nil {
 		if err.Error() == "err from repo: data not found" {
 			http.Error(w, "No metric with this name", http.StatusNotFound)
@@ -161,18 +169,21 @@ func (h MetricsHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.srv.Update(data)
+	err = h.srv.Update(r.Context(), data)
 	if err != nil {
 		h.lg.Error("error while updating metric", zap.Error(err))
 		http.Error(w, "Something went wrong", http.StatusInternalServerError)
 		return
 	}
 
-	err = h.saver.WriteSync(data)
-	if err != nil {
-		h.lg.Error("error while writing to file", zap.Error(err))
-		http.Error(w, "Something went wrong", http.StatusInternalServerError)
-		return
+	if h.saver != nil {
+		h.lg.Info("saver is not nil", zap.Any("h.saver", h.saver))
+		err = h.saver.WriteSync(data)
+		if err != nil {
+			h.lg.Error("error while writing to file", zap.Error(err))
+			http.Error(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	h.lg.Debug("got new metric", zap.String("name", mName), zap.String("value", value))
@@ -181,7 +192,7 @@ func (h MetricsHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h MetricsHandler) UpdateJSON(w http.ResponseWriter, r *http.Request) {
-	metric := models.MetricsJSON{}
+	metric := domain.MetricsJSON{}
 	defer r.Body.Close()
 	err := json.NewDecoder(r.Body).Decode(&metric)
 	if err != nil {
@@ -190,18 +201,20 @@ func (h MetricsHandler) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.srv.Update(&metric)
+	err = h.srv.Update(r.Context(), &metric)
 	if err != nil {
 		h.lg.Error("metrics type or value is incorrect")
 		http.Error(w, "тип или значение некорректно", http.StatusBadRequest)
 		return
 	}
 
-	err = h.saver.WriteSync(&metric)
-	if err != nil {
-		h.lg.Error("error while writing to file", zap.Error(err))
-		http.Error(w, "Something went wrong", http.StatusInternalServerError)
-		return
+	if h.saver != nil {
+		err = h.saver.WriteSync(&metric)
+		if err != nil {
+			h.lg.Error("error while writing to file", zap.Error(err))
+			http.Error(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)
