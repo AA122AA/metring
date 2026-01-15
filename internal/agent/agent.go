@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	models "github.com/AA122AA/metring/internal/server/model"
+	"github.com/AA122AA/metring/internal/server/domain"
 	"github.com/go-faster/sdk/zctx"
 	"go.uber.org/zap"
 )
@@ -91,21 +91,21 @@ func (ma *MetricAgent) GatherMetrics() {
 		}
 
 		m.Value = &floatValue
-		m.MType = models.Gauge
+		m.MType = domain.Gauge
 		ma.mm[field.Name] = m
 	}
 
 	d := int64(1)
 	ma.mm["PollCount"] = &Metric{
 		ID:    "PollCount",
-		MType: models.Counter,
+		MType: domain.Counter,
 		Delta: &d,
 	}
 
 	r := rand.Float64()
 	ma.mm["RandomValue"] = &Metric{
 		ID:    "RandomValue",
-		MType: models.Gauge,
+		MType: domain.Gauge,
 		Value: &r,
 	}
 

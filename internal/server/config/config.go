@@ -42,7 +42,7 @@ func (c *Config) ParseConfig() {
 	flag.StringVar(
 		&c.SaverCfg.FileStoragePath,
 		"f",
-		"data/metrics.json",
+		"",
 		"file where old metrics are stored",
 	)
 	flag.BoolVar(

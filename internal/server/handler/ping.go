@@ -22,7 +22,13 @@ func NewPingHandler(ctx context.Context, db *database.Database) *PingHandler {
 }
 
 func (p *PingHandler) Ping(w http.ResponseWriter, r *http.Request) {
-	err := p.db.Ping()
+	if p.db == nil {
+		http.Error(w, "Can not ping Database", http.StatusInternalServerError)
+		p.lg.Info("Database is not connected")
+		return
+	}
+
+	err := p.db.Ping(r.Context())
 	if err != nil {
 		http.Error(w, "Can not ping Database", http.StatusInternalServerError)
 		p.lg.Error("Can not ping Database", zap.Error(err))

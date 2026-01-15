@@ -11,6 +11,7 @@ import (
 	"github.com/AA122AA/metring/internal/server"
 	"github.com/AA122AA/metring/internal/server/config"
 	"github.com/AA122AA/metring/internal/server/database"
+	"github.com/AA122AA/metring/internal/server/database/query"
 	mHandler "github.com/AA122AA/metring/internal/server/handler"
 	"github.com/AA122AA/metring/internal/server/repository"
 	"github.com/AA122AA/metring/internal/server/service/metrics"
@@ -73,22 +74,50 @@ func run() error {
 		zap.Bool("restore", cfg.SaverCfg.Restore),
 	)
 
+	// Init repo
+	var repo repository.MetricsRepository
+	repo = repository.NewMemStorage()
+
+	var dBase *database.Database
 	// Init DB
-	dBase := database.New(ctx, "pgx", cfg.DatabaseDSN)
-	if err != nil {
-		lg.Fatal("can not connect to db", zap.Error(err))
+	if cfg.DatabaseDSN != "" {
+		dBase = database.New(ctx, "pgx", cfg.DatabaseDSN)
+		err = dBase.Ping(ctx)
+		if err != nil {
+			lg.Fatal("can not connect to db", zap.Error(err))
+		}
+		defer dBase.Close()
+
+		// Run migrations
+		err = dBase.Migrate(ctx)
+		if err != nil {
+			lg.Fatal("can not run migrations", zap.Error(err))
+		}
+		d := dBase.DB()
+		q := query.New(d)
+		repo = repository.NewPSQLStorage(ctx, q, dBase)
 	}
 
-	// Init repos
-	repo := repository.NewMemStorage()
-	// dbrepo := repository.NewPSQLStorege()
+	// Create wait group
+	var wg sync.WaitGroup
 
 	// Init services
 	srv := metrics.NewMetrics(ctx, repo)
-	saver := saver.NewSaver(ctx, cfg.SaverCfg, repo)
+
+	var saverSvc *saver.Saver
+	if cfg.SaverCfg.FileStoragePath != "" {
+		lg.Debug("file storage path is not empty", zap.String("FileStoragePath", cfg.SaverCfg.FileStoragePath))
+		saverSvc = saver.NewSaver(ctx, cfg.SaverCfg, repo)
+		wg.Add(1)
+		go saverSvc.Run(ctx, &wg)
+		lg.Debug("Ran saver")
+	}
+	if saverSvc == nil {
+		lg.Debug("saver should be nil", zap.Any("saverSvc", saverSvc))
+	}
 
 	// Init handlers
-	metricHandler := mHandler.NewMetricsHandler(ctx, cfg.TemplatePath, srv, saver)
+	metricHandler := mHandler.NewMetricsHandler(ctx, cfg.TemplatePath, srv, saverSvc)
 	pingHandler := mHandler.NewPingHandler(ctx, dBase)
 
 	// Init routers
@@ -96,11 +125,6 @@ func run() error {
 
 	// Init server
 	server := server.NewServer(ctx, cfg, router)
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go saver.Run(ctx, &wg)
-	lg.Debug("Ran saver")
 
 	wg.Add(1)
 	go server.OnShutDown(ctx, &wg)
