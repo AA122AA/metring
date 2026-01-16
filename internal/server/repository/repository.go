@@ -1,9 +1,16 @@
 package repository
 
-import models "github.com/AA122AA/metring/internal/server/model"
+import (
+	"context"
+
+	"github.com/AA122AA/metring/internal/server/domain"
+)
 
 type MetricsRepository interface {
-	GetAll() (map[string]*models.Metrics, error)
-	Get(name string) (*models.Metrics, error)
-	Write(name string, value *models.Metrics) error
+	GetAll(ctx context.Context) (map[string]*domain.Metrics, error)
+	Get(ctx context.Context, name string) (*domain.Metrics, error)
+	Write(ctx context.Context, name string, value *domain.Metrics) error
+	WriteMetrics(ctx context.Context, values []*domain.Metrics) error
+	Update(ctx context.Context, value *domain.Metrics) error
+	UpdateMetrics(ctx context.Context, values []*domain.Metrics) error
 }

@@ -1,4 +1,6 @@
-package models
+package domain
+
+import "github.com/AA122AA/metring/internal/server/database/query"
 
 const (
 	Counter = "counter"
@@ -40,5 +42,15 @@ func TransformToJSON(data *Metrics) *MetricsJSON {
 		MType: data.MType,
 		Delta: data.Delta,
 		Value: data.Value,
+	}
+}
+
+func DBToDomain(metric *query.Metric) *Metrics {
+	return &Metrics{
+		ID:    metric.Name,
+		MType: metric.Type,
+		Delta: &metric.Delta.Int64,
+		Value: &metric.Value.Float64,
+		Hash:  metric.Hash.String,
 	}
 }
