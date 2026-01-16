@@ -20,6 +20,7 @@ type metricsHandler interface {
 	GetJSON(w http.ResponseWriter, r *http.Request)
 	Update(w http.ResponseWriter, r *http.Request)
 	UpdateJSON(w http.ResponseWriter, r *http.Request)
+	Updates(w http.ResponseWriter, r *http.Request)
 }
 
 type pingHandler interface {
@@ -102,6 +103,15 @@ func NewRouter(ctx context.Context, h metricsHandler, p pingHandler) *chi.Mux {
 			middleware.Wrap(
 				http.HandlerFunc(h.Update),
 				middleware.WithLogger(zctx.From(ctx).Named("UpdateValue"))),
+			middleware.WithCompression()),
+		)
+	})
+
+	router.Route("/updates", func(r chi.Router) {
+		r.Post("/", middleware.Wrap(
+			middleware.Wrap(
+				http.HandlerFunc(h.Updates),
+				middleware.WithLogger(zctx.From(ctx).Named("Updates"))),
 			middleware.WithCompression()),
 		)
 	})

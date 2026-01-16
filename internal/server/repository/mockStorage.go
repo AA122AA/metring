@@ -71,6 +71,14 @@ func (mr *mockRepo) Write(ctx context.Context, name string, value *domain.Metric
 	return nil
 }
 
+func (mr *mockRepo) WriteMetrics(ctx context.Context, value []*domain.Metrics) error {
+	return nil
+}
+
 func (mr *mockRepo) Update(ctx context.Context, value *domain.Metrics) error {
+	return nil
+}
+
+func (mr *mockRepo) UpdateMetrics(ctx context.Context, value []*domain.Metrics) error {
 	return nil
 }

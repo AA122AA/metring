@@ -92,21 +92,71 @@ func (m *Metrics) Update(ctx context.Context, data *domain.MetricsJSON) error {
 	return m.repo.Update(ctx, metric)
 }
 
-func validate(data *domain.MetricsJSON, handler string) error {
-	if data.ID == "" {
-		return fmt.Errorf("empty name")
+func (m *Metrics) Updates(ctx context.Context, data []*domain.MetricsJSON) error {
+	mm, err := trim(data)
+	if err != nil {
+		return err
 	}
-	if data.Value == nil && data.Delta == nil && handler == constants.Update {
-		return fmt.Errorf("empty Value or Delta")
+
+	toUpdate := make([]*domain.Metrics, 0, len(mm))
+	toInsert := make([]*domain.Metrics, 0, len(mm))
+
+	for name, metric := range mm {
+		fromRepo, err := m.repo.Get(ctx, name)
+		if err != nil {
+			if err.Error() == "data not found" {
+				toInsert = append(toInsert, metric)
+				continue
+			}
+			return err
+		}
+
+		if fromRepo.MType == domain.Counter {
+			*metric.Delta += *fromRepo.Delta
+		}
+
+		toUpdate = append(toUpdate, metric)
 	}
-	switch data.MType {
-	case domain.Counter:
-		return nil
-	case domain.Gauge:
-		return nil
-	default:
-		return fmt.Errorf("wrong type")
+
+	if len(toInsert) > 0 {
+		err := m.repo.WriteMetrics(ctx, toInsert)
+		if err != nil {
+			return err
+		}
 	}
+
+	if len(toUpdate) > 0 {
+		err := m.repo.UpdateMetrics(ctx, toUpdate)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func trim(data []*domain.MetricsJSON) (map[string]*domain.Metrics, error) {
+	mm := make(map[string]*domain.Metrics, len(data))
+	for _, d := range data {
+		err := validate(d, constants.Update)
+		if err != nil {
+			return nil, err
+		}
+
+		metric := domain.TransformFromJSON(d)
+
+		if v, ok := mm[metric.ID]; ok {
+			if v.MType == domain.Counter {
+				*v.Delta += *metric.Delta
+			} else {
+				*v.Value = *metric.Value
+			}
+		} else {
+			mm[metric.ID] = metric
+		}
+	}
+
+	return mm, nil
 }
 
 func (m *Metrics) Parse(mType, mName, value, handler string) (*domain.MetricsJSON, error) {
@@ -143,5 +193,22 @@ func (m *Metrics) Parse(mType, mName, value, handler string) (*domain.MetricsJSO
 		return data, nil
 	default:
 		return nil, fmt.Errorf("wrong type")
+	}
+}
+
+func validate(data *domain.MetricsJSON, handler string) error {
+	if data.ID == "" {
+		return fmt.Errorf("empty name")
+	}
+	if data.Value == nil && data.Delta == nil && handler == constants.Update {
+		return fmt.Errorf("empty Value or Delta")
+	}
+	switch data.MType {
+	case domain.Counter:
+		return nil
+	case domain.Gauge:
+		return nil
+	default:
+		return fmt.Errorf("wrong type")
 	}
 }

@@ -2,7 +2,6 @@ package config
 
 import (
 	"flag"
-	"fmt"
 	"log"
 
 	"github.com/AA122AA/metring/internal/flags"
@@ -51,7 +50,6 @@ func (c *Config) ParseConfig() {
 		true,
 		"should server restore old metrics or not",
 	)
-	fmt.Printf("file storage in Parseconfig: %v\n", c.SaverCfg.FileStoragePath)
 	flag.Parse()
 }
 

@@ -62,6 +62,26 @@ func (ps *PSQLStorage) Update(ctx context.Context, value *domain.Metrics) error 
 	return nil
 }
 
+func (ps *PSQLStorage) UpdateMetrics(ctx context.Context, values []*domain.Metrics) error {
+	tx, err := ps.db.BeginTx(ctx)
+	if err != nil {
+		ps.lg.Error("cannot begin transaction", zap.Error(err))
+		return fmt.Errorf("cannot begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	q := ps.queries.WithTx(tx)
+	for _, metric := range values {
+		err := q.Update(ctx, *parseUpdate(metric))
+		if err != nil {
+			ps.lg.Error("cannot update metric", zap.String("metric name", metric.ID), zap.Error(err))
+			return fmt.Errorf("cannot update metric %v: %w", metric.ID, err)
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
 func (ps *PSQLStorage) Write(ctx context.Context, name string, value *domain.Metrics) error {
 	err := ps.queries.Write(ctx, *parseWrite(value))
 	if err != nil {
@@ -70,6 +90,26 @@ func (ps *PSQLStorage) Write(ctx context.Context, name string, value *domain.Met
 	}
 
 	return nil
+}
+
+func (ps *PSQLStorage) WriteMetrics(ctx context.Context, values []*domain.Metrics) error {
+	tx, err := ps.db.BeginTx(ctx)
+	if err != nil {
+		ps.lg.Error("cannot begin transaction", zap.Error(err))
+		return fmt.Errorf("cannot begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	q := ps.queries.WithTx(tx)
+	for _, metric := range values {
+		err := q.Write(ctx, *parseWrite(metric))
+		if err != nil {
+			ps.lg.Error("cannot write metric", zap.String("metric name", metric.ID), zap.Error(err))
+			return fmt.Errorf("cannot write metric %v: %w", metric.ID, err)
+		}
+	}
+
+	return tx.Commit(ctx)
 }
 
 func parseUpdate(value *domain.Metrics) *query.UpdateParams {

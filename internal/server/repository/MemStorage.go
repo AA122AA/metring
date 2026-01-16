@@ -37,7 +37,23 @@ func (ms *MemStorage) Write(ctx context.Context, name string, value *domain.Metr
 	return nil
 }
 
+func (ms *MemStorage) WriteMetrics(ctx context.Context, values []*domain.Metrics) error {
+	for _, v := range values {
+		ms.Values[v.ID] = v
+	}
+
+	return nil
+}
+
 func (ms *MemStorage) Update(ctx context.Context, value *domain.Metrics) error {
 	ms.Values[value.ID] = value
+	return nil
+}
+
+func (ms *MemStorage) UpdateMetrics(ctx context.Context, values []*domain.Metrics) error {
+	for _, v := range values {
+		ms.Values[v.ID] = v
+	}
+
 	return nil
 }

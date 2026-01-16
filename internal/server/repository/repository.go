@@ -10,5 +10,7 @@ type MetricsRepository interface {
 	GetAll(ctx context.Context) (map[string]*domain.Metrics, error)
 	Get(ctx context.Context, name string) (*domain.Metrics, error)
 	Write(ctx context.Context, name string, value *domain.Metrics) error
+	WriteMetrics(ctx context.Context, values []*domain.Metrics) error
 	Update(ctx context.Context, value *domain.Metrics) error
+	UpdateMetrics(ctx context.Context, values []*domain.Metrics) error
 }

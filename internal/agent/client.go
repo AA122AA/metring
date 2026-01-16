@@ -47,9 +47,62 @@ func (mc *MetricClient) Run(ctx context.Context, wg *sync.WaitGroup) {
 			mc.lg.Info("got cancellation, returning")
 			return
 		case <-ticker.C:
-			mc.SendUpdateJSON(mc.agent.GetMetrics())
+			// mc.SendUpdateJSON(mc.agent.GetMetrics())
+			mc.SendUpdateJSONBatch(mc.agent.GetMetrics())
 		}
 	}
+}
+
+func (mc *MetricClient) SendUpdateJSONBatch(mm map[string]*Metric) {
+	metrics := make([]*Metric, 0, len(mm))
+	for _, v := range mm {
+		metrics = append(metrics, v)
+	}
+
+	u, err := buildURL(mc.baseURL, "updates/")
+	if err != nil {
+		mc.lg.Error("error building url", zap.Error(err))
+		return
+	}
+	mc.lg.Debug("url", zap.Any("url", u))
+
+	body, err := json.Marshal(metrics)
+	if err != nil {
+		mc.lg.Error("error marshling body", zap.Error(err))
+		return
+	}
+
+	var buf bytes.Buffer
+	w := gzip.NewWriter(&buf)
+	_, err = w.Write(body)
+	if err != nil {
+		mc.lg.Error("error compressing body", zap.Error(err))
+		return
+	}
+	w.Close()
+
+	req, err := http.NewRequest(http.MethodPost, u.String(), &buf)
+	if err != nil {
+		mc.lg.Error("error making new request", zap.Error(err))
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+	req.Header.Set("Content-Encoding", "gzip")
+
+	resp, err := mc.client.Do(req)
+	if err != nil {
+		mc.lg.Error("error doing request", zap.String("url", req.URL.String()), zap.Error(err))
+		return
+
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		mc.lg.Error("wrong status", zap.Int("status code", resp.StatusCode), zap.String("status", resp.Status))
+		return
+	}
+	mc.lg.Debug("sent update")
 }
 
 func (mc *MetricClient) SendUpdateJSON(mm map[string]*Metric) {

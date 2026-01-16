@@ -7,6 +7,7 @@ import (
 
 	"github.com/AA122AA/metring/db/schema"
 	"github.com/go-faster/sdk/zctx"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -30,6 +31,10 @@ func New(ctx context.Context, driver, dsn string) *Database {
 		pool: database,
 		lg:   logger,
 	}
+}
+
+func (d *Database) BeginTx(ctx context.Context) (pgx.Tx, error) {
+	return d.pool.Begin(ctx)
 }
 
 func (d *Database) DB() *pgxpool.Pool {

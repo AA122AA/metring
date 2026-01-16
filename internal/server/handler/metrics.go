@@ -18,6 +18,7 @@ import (
 type Metrics interface {
 	Parse(mType string, mName string, value string, handler string) (*domain.MetricsJSON, error)
 	Update(ctx context.Context, metric *domain.MetricsJSON) error
+	Updates(ctx context.Context, metrics []*domain.MetricsJSON) error
 	Get(ctx context.Context, metric *domain.MetricsJSON) (string, error)
 	GetJSON(ctx context.Context, metric *domain.MetricsJSON) (*domain.MetricsJSON, error)
 	GetAll(ctx context.Context) (map[string]*domain.Metrics, error)
@@ -25,6 +26,7 @@ type Metrics interface {
 
 type Saver interface {
 	WriteSync(data *domain.MetricsJSON) error
+	WriteSyncBatch(data []*domain.MetricsJSON) error
 }
 
 type MetricsHandler struct {
@@ -210,6 +212,35 @@ func (h MetricsHandler) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 
 	if h.saver != nil {
 		err = h.saver.WriteSync(&metric)
+		if err != nil {
+			h.lg.Error("error while writing to file", zap.Error(err))
+			http.Error(w, "Something went wrong", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h MetricsHandler) Updates(w http.ResponseWriter, r *http.Request) {
+	metrics := make([]*domain.MetricsJSON, 0, 20)
+	defer r.Body.Close()
+	err := json.NewDecoder(r.Body).Decode(&metrics)
+	if err != nil {
+		http.Error(w, "Что-то пошло не так", http.StatusInternalServerError)
+		h.lg.Error("error while decoding", zap.Error(err))
+		return
+	}
+
+	err = h.srv.Updates(r.Context(), metrics)
+	if err != nil {
+		h.lg.Error("metrics type or value is incorrect")
+		http.Error(w, "тип или значение некорректно", http.StatusBadRequest)
+		return
+	}
+
+	if h.saver != nil {
+		err = h.saver.WriteSyncBatch(metrics)
 		if err != nil {
 			h.lg.Error("error while writing to file", zap.Error(err))
 			http.Error(w, "Something went wrong", http.StatusInternalServerError)
