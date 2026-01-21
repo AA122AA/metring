@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"html/template"
 	"net/http"
 	"reflect"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/AA122AA/metring/internal/server/constants"
 	"github.com/AA122AA/metring/internal/server/domain"
+	"github.com/AA122AA/metring/internal/server/repository"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-faster/sdk/zctx"
 	"go.uber.org/zap"
@@ -92,7 +94,9 @@ func (h MetricsHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	m, err := h.srv.Get(r.Context(), data)
 	if err != nil {
-		if err.Error() == "err from repo: data not found" {
+		// if err.Error() == "err from repo: data not found" {
+		var er *repository.EmptyRepoError
+		if errors.Is(err, er) {
 			http.Error(w, "No metric with this name", http.StatusNotFound)
 			h.lg.Error("no metric with provided name", zap.String("name", mName), zap.Error(err))
 			return
@@ -126,7 +130,9 @@ func (h MetricsHandler) GetJSON(w http.ResponseWriter, r *http.Request) {
 
 	m, err := h.srv.GetJSON(r.Context(), &data)
 	if err != nil {
-		if err.Error() == "err from repo: data not found" {
+		var er *repository.EmptyRepoError
+		if errors.Is(err, er) {
+			// if err.Error() == "err from repo: data not found" {
 			http.Error(w, "No metric with this name", http.StatusNotFound)
 			h.lg.Error("no metric with provided name", zap.String("name", data.ID), zap.Error(err))
 			return

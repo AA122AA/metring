@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/AA122AA/metring/internal/server/domain"
 )
@@ -21,7 +20,8 @@ func (ms *MemStorage) GetAll(ctx context.Context) (map[string]*domain.Metrics, e
 	if len(ms.Values) != 0 {
 		return ms.Values, nil
 	}
-	return nil, fmt.Errorf("no metrics")
+	// return nil, fmt.Errorf("no metrics")
+	return nil, NewEmptyRepoError(nil)
 }
 
 func (ms *MemStorage) Get(ctx context.Context, name string) (*domain.Metrics, error) {
@@ -29,7 +29,7 @@ func (ms *MemStorage) Get(ctx context.Context, name string) (*domain.Metrics, er
 		return v, nil
 	}
 
-	return nil, fmt.Errorf("data not found")
+	return nil, NewEmptyRepoError(nil)
 }
 
 func (ms *MemStorage) Write(ctx context.Context, name string, value *domain.Metrics) error {

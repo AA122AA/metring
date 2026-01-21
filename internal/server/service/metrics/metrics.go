@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -78,7 +79,8 @@ func (m *Metrics) Update(ctx context.Context, data *domain.MetricsJSON) error {
 
 	v, err := m.repo.Get(ctx, metric.ID)
 	if err != nil {
-		if err.Error() == "data not found" {
+		var er *repository.EmptyRepoError
+		if errors.Is(err, er) {
 			return m.repo.Write(ctx, data.ID, metric)
 		}
 		return fmt.Errorf("%w", err)
@@ -104,7 +106,8 @@ func (m *Metrics) Updates(ctx context.Context, data []*domain.MetricsJSON) error
 	for name, metric := range mm {
 		fromRepo, err := m.repo.Get(ctx, name)
 		if err != nil {
-			if err.Error() == "data not found" {
+			var er *repository.EmptyRepoError
+			if errors.Is(err, er) {
 				toInsert = append(toInsert, metric)
 				continue
 			}

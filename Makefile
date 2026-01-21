@@ -151,4 +151,12 @@ autotest-12: build-server build-agent
             -server-port=8080 \
             -source-path=.
 
+autotest-13: build-server build-agent
+	./metricstest_v2 -test.v -test.run=^TestIteration13$$ \
+            -agent-binary-path=cmd/agent/agent \
+            -binary-path=cmd/server/server \
+            -database-dsn=${DSN} \
+            -server-port=8080 \
+            -source-path=.
+
 autotests: build-server build-agent autotest-1 autotest-2 autotest-3 autotest-4 autotest-5 autotest-6 autotest-7 autotest-8 autotest-9 autotest-10 autotest-11 autotest-12

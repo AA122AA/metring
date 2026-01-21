@@ -2,19 +2,23 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"reflect"
+	"time"
 
 	"github.com/AA122AA/metring/internal/server/database"
 	"github.com/AA122AA/metring/internal/server/database/query"
 	"github.com/AA122AA/metring/internal/server/domain"
 	"github.com/go-faster/sdk/zctx"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"go.uber.org/zap"
 )
 
 type PSQLStorage struct {
-	db *database.Database
-	// TODO: create sqlc pack
+	db      *database.Database
 	queries *query.Queries
 	lg      *zap.Logger
 }
@@ -27,11 +31,50 @@ func NewPSQLStorage(ctx context.Context, queries *query.Queries, db *database.Da
 	}
 }
 
+func (ps *PSQLStorage) getAllWithRetry(ctx context.Context) ([]query.Metric, error) {
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+	intervals := []int{1, 3, 5}
+	maxRetry := 3
+
+	for try := 0; try <= maxRetry; try++ {
+		select {
+		case <-ctx.Done():
+			return nil, nil
+		case <-timer.C:
+			metrics, err := ps.queries.GetAll(ctx)
+			if err == nil {
+				return metrics, nil
+			}
+
+			t := reflect.TypeOf(err)
+			ps.lg.Warn("err type", zap.Any("type", t))
+
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				if pgErr.Code != pgerrcode.ConnectionException {
+					return nil, err
+				}
+
+				if try < len(intervals) {
+					timer.Reset(time.Duration(intervals[try]) * time.Second)
+					continue
+				}
+			}
+			return nil, err
+		}
+	}
+
+	return nil, fmt.Errorf("unknown error")
+}
+
 func (ps *PSQLStorage) GetAll(ctx context.Context) (map[string]*domain.Metrics, error) {
-	metrics, err := ps.queries.GetAll(ctx)
+	metrics, err := ps.getAllWithRetry(ctx)
+	// metrics, err := ps.queries.GetAll(ctx)
 	if err != nil {
 		ps.lg.Error("cannot get all metrics", zap.Error(err))
-		return nil, fmt.Errorf("cannot get all metrics: %w", err)
+		// return nil, fmt.Errorf("cannot get all metrics: %w", err)
+		return nil, NewEmptyRepoError(err)
 	}
 	mm := make(map[string]*domain.Metrics)
 
@@ -45,8 +88,7 @@ func (ps *PSQLStorage) GetAll(ctx context.Context) (map[string]*domain.Metrics, 
 func (ps *PSQLStorage) Get(ctx context.Context, name string) (*domain.Metrics, error) {
 	metric, err := ps.queries.Get(ctx, name)
 	if err != nil {
-		ps.lg.Error("cannot get metric", zap.String("metric name", name), zap.Error(err))
-		return nil, fmt.Errorf("data not found")
+		return nil, NewEmptyRepoError(err)
 	}
 
 	return domain.DBToDomain(&metric), nil
@@ -55,7 +97,6 @@ func (ps *PSQLStorage) Get(ctx context.Context, name string) (*domain.Metrics, e
 func (ps *PSQLStorage) Update(ctx context.Context, value *domain.Metrics) error {
 	err := ps.queries.Update(ctx, *parseUpdate(value))
 	if err != nil {
-		ps.lg.Error("cannot update metric", zap.String("metric name", value.ID), zap.Error(err))
 		return fmt.Errorf("cannot update metric %v: %w", value.ID, err)
 	}
 

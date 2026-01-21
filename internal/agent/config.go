@@ -13,8 +13,8 @@ type Config struct {
 }
 
 func (c *Config) ParseFlags() {
-	flag.IntVar(&c.ReportInterval, "r", 10, "poll interval value (seconds)")
-	flag.IntVar(&c.PollInterval, "p", 2, "report interval value (seconds)")
+	flag.IntVar(&c.ReportInterval, "r", 10, "report interval value (seconds)")
+	flag.IntVar(&c.PollInterval, "p", 2, "poll interval value (seconds)")
 	flag.Func("a", "ip:port where server will serve", func(flagArgs string) error {
 		return flags.ParseAddr(flagArgs, &c.URL)
 	})

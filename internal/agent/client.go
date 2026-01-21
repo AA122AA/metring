@@ -5,10 +5,12 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"path"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -17,13 +19,38 @@ import (
 	"go.uber.org/zap"
 )
 
+type ReqError struct {
+	err error
+}
+
+func (re *ReqError) Unwrap() error {
+	return re.err
+}
+
+func (re *ReqError) Error() string {
+	return re.err.Error()
+}
+
+func (re *ReqError) Is(target error) bool {
+	_, ok := target.(*ReqError)
+	return ok
+}
+
+func NewReqError(err error) *ReqError {
+	return &ReqError{
+		err: err,
+	}
+}
+
 type MetricClient struct {
 	reportInterval int
 	baseURL        string
 
-	client *http.Client
-	agent  *MetricAgent
-	lg     *zap.Logger
+	client         *http.Client
+	agent          *MetricAgent
+	lg             *zap.Logger
+	maxRetry       int
+	retryIntervals []int
 }
 
 func NewMetricClient(ctx context.Context, mAgent *MetricAgent, cfg *Config) *MetricClient {
@@ -33,27 +60,71 @@ func NewMetricClient(ctx context.Context, mAgent *MetricAgent, cfg *Config) *Met
 		client: &http.Client{
 			Timeout: 2 * time.Second,
 		},
-		agent: mAgent,
-		lg:    zctx.From(ctx).Named("metrics client"),
+		agent:          mAgent,
+		lg:             zctx.From(ctx).Named("metrics client"),
+		maxRetry:       3,
+		retryIntervals: []int{1, 3, 5},
 	}
 }
 
 func (mc *MetricClient) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	ticker := time.NewTicker(time.Duration(mc.reportInterval) * time.Second)
+	timer := time.NewTimer(time.Duration(mc.reportInterval) * time.Second)
+	defer timer.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			mc.lg.Info("got cancellation, returning")
 			return
-		case <-ticker.C:
-			// mc.SendUpdateJSON(mc.agent.GetMetrics())
-			mc.SendUpdateJSONBatch(mc.agent.GetMetrics())
+		case <-timer.C:
+			mc.withRetry(ctx, mc.SendUpdateJSONBatch, mc.agent.GetMetrics())
+			timer.Reset(time.Duration(mc.reportInterval) * time.Second)
 		}
 	}
 }
 
-func (mc *MetricClient) SendUpdateJSONBatch(mm map[string]*Metric) {
+func (mc *MetricClient) withRetry(ctx context.Context, f func(map[string]*Metric) error, mm map[string]*Metric) {
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+
+	for try := 0; try <= mc.maxRetry; try++ {
+		select {
+		case <-ctx.Done():
+			mc.lg.Warn("got cancellation in retry")
+			return
+		case <-timer.C:
+			err := f(mm)
+			if err == nil {
+				return
+			}
+			var re *ReqError
+			if !errors.Is(err, re) {
+				t := reflect.TypeOf(err)
+				mc.lg.Debug("type of err", zap.Any("type", t))
+				mc.lg.Error("error not in request", zap.Error(err))
+				return
+			}
+			if try < len(mc.retryIntervals) {
+				timer.Reset(time.Duration(mc.retryIntervals[try]) * time.Second)
+			}
+			mc.lg.Warn("trying to connect after false", zap.Int("try", try))
+		}
+	}
+	mc.lg.Warn("gonna wait for 5 min")
+
+	timer.Reset(5 * time.Minute)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+			return
+		}
+	}
+}
+
+func (mc *MetricClient) SendUpdateJSONBatch(mm map[string]*Metric) error {
 	metrics := make([]*Metric, 0, len(mm))
 	for _, v := range mm {
 		metrics = append(metrics, v)
@@ -62,14 +133,14 @@ func (mc *MetricClient) SendUpdateJSONBatch(mm map[string]*Metric) {
 	u, err := buildURL(mc.baseURL, "updates/")
 	if err != nil {
 		mc.lg.Error("error building url", zap.Error(err))
-		return
+		return err
 	}
 	mc.lg.Debug("url", zap.Any("url", u))
 
 	body, err := json.Marshal(metrics)
 	if err != nil {
 		mc.lg.Error("error marshling body", zap.Error(err))
-		return
+		return err
 	}
 
 	var buf bytes.Buffer
@@ -77,32 +148,25 @@ func (mc *MetricClient) SendUpdateJSONBatch(mm map[string]*Metric) {
 	_, err = w.Write(body)
 	if err != nil {
 		mc.lg.Error("error compressing body", zap.Error(err))
-		return
+		return err
 	}
 	w.Close()
 
-	req, err := http.NewRequest(http.MethodPost, u.String(), &buf)
+	resp, err := mc.makeRequest(u, &buf)
 	if err != nil {
-		mc.lg.Error("error making new request", zap.Error(err))
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept-Encoding", "gzip")
-	req.Header.Set("Content-Encoding", "gzip")
-
-	resp, err := mc.client.Do(req)
-	if err != nil {
-		mc.lg.Error("error doing request", zap.String("url", req.URL.String()), zap.Error(err))
-		return
-
+		mc.lg.Error("error doing request", zap.String("url", u.String()), zap.Error(err))
+		return NewReqError(err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		mc.lg.Error("wrong status", zap.Int("status code", resp.StatusCode), zap.String("status", resp.Status))
-		return
+		return err
 	}
-	mc.lg.Debug("sent update")
+	// mc.lg.Debug("sent update successfully")
+	mc.lg.Warn("sent update successfully", zap.Any("metrics", metrics))
+
+	return nil
 }
 
 func (mc *MetricClient) SendUpdateJSON(mm map[string]*Metric) {
@@ -128,18 +192,9 @@ func (mc *MetricClient) SendUpdateJSON(mm map[string]*Metric) {
 		}
 		w.Close()
 
-		req, err := http.NewRequest(http.MethodPost, u.String(), &buf)
+		resp, err := mc.makeRequest(u, &buf)
 		if err != nil {
-			mc.lg.Error("error making new request", zap.Error(err))
-			continue
-		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept-Encoding", "gzip")
-		req.Header.Set("Content-Encoding", "gzip")
-
-		resp, err := mc.client.Do(req)
-		if err != nil {
-			mc.lg.Error("error doing request", zap.String("url", req.URL.String()), zap.Error(err))
+			mc.lg.Error("error doing request", zap.String("url", resp.Request.URL.String()), zap.Error(err))
 			continue
 		}
 		defer resp.Body.Close()
@@ -204,4 +259,17 @@ func buildURL(base string, values ...string) (*url.URL, error) {
 	fullPath := path.Join(values...)
 	u.Path = path.Join(u.Path, fullPath)
 	return u, nil
+}
+
+func (mc *MetricClient) makeRequest(u *url.URL, buf *bytes.Buffer) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodPost, u.String(), buf)
+	if err != nil {
+		mc.lg.Error("error making new request", zap.Error(err))
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept-Encoding", "gzip")
+	req.Header.Set("Content-Encoding", "gzip")
+
+	return mc.client.Do(req)
 }

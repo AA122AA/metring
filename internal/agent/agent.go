@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"math/rand/v2"
 	"reflect"
@@ -38,16 +39,23 @@ func NewMetricAgent(ctx context.Context, cfg *Config) *MetricAgent {
 
 func (ma *MetricAgent) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
+	ticker := time.NewTicker(time.Duration(ma.pollInterval) * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
 			ma.lg.Info("got cancellation, returning")
 			return
-		default:
+		case <-ticker.C:
 			ma.GatherMetrics()
-			time.Sleep(time.Duration(ma.pollInterval) * time.Second)
 		}
 	}
+}
+
+func (ma *MetricAgent) GetMetrics() map[string]*Metric {
+	ma.mu.Lock()
+	defer ma.mu.Unlock()
+
+	return maps.Clone(ma.mm)
 }
 
 func (ma *MetricAgent) GatherMetrics() {
@@ -55,44 +63,19 @@ func (ma *MetricAgent) GatherMetrics() {
 	defer ma.mu.Unlock()
 	ma.lg.Debug("Start Gathering metrics")
 
+	// Читаем метрики
 	memoryStats := &runtime.MemStats{}
 	runtime.ReadMemStats(memoryStats)
+
 	v := reflect.ValueOf(*memoryStats)
 	t := v.Type()
 	for i := range v.NumField() {
-		value := v.Field(i)
-		field := t.Field(i)
-		m := &Metric{
-			ID: field.Name,
-		}
-		var toValue interface{}
-		switch field.Type.Kind() {
-		case reflect.Uint64, reflect.Uint32:
-			if value.CanUint() {
-				toValue = float64(value.Uint())
-			} else {
-				continue
-			}
-		case reflect.Float64:
-			if value.CanFloat() {
-				toValue = value.Float()
-			} else {
-				continue
-			}
-		default:
-			ma.lg.Debug("do not work with this type", zap.String("type", field.Type.Name()))
+		m, err := createMetric(v, t, i)
+		if err != nil {
 			continue
 		}
 
-		floatValue, ok := toValue.(float64)
-		if !ok {
-			ma.lg.Error("wrong assertion")
-			continue
-		}
-
-		m.Value = &floatValue
-		m.MType = domain.Gauge
-		ma.mm[field.Name] = m
+		ma.mm[m.ID] = m
 	}
 
 	d := int64(1)
@@ -112,9 +95,38 @@ func (ma *MetricAgent) GatherMetrics() {
 	ma.lg.Debug("Finish Gathering metrics")
 }
 
-func (ma *MetricAgent) GetMetrics() map[string]*Metric {
-	ma.mu.Lock()
-	defer ma.mu.Unlock()
+func createMetric(v reflect.Value, t reflect.Type, i int) (*Metric, error) {
+	value := v.Field(i)
+	field := t.Field(i)
+	m := &Metric{
+		ID: field.Name,
+	}
 
-	return maps.Clone(ma.mm)
+	var toValue any
+	switch field.Type.Kind() {
+	case reflect.Uint64, reflect.Uint32:
+		if value.CanUint() {
+			toValue = float64(value.Uint())
+		} else {
+			return nil, fmt.Errorf("field %v can not be Uint", field.Name)
+		}
+	case reflect.Float64:
+		if value.CanFloat() {
+			toValue = value.Float()
+		} else {
+			return nil, fmt.Errorf("field %v can not be Float", field.Name)
+		}
+	default:
+		return nil, fmt.Errorf("do not work with type %v", field.Type.Name())
+	}
+
+	floatValue, ok := toValue.(float64)
+	if !ok {
+		return nil, fmt.Errorf("toValue is not float64")
+	}
+
+	m.Value = &floatValue
+	m.MType = domain.Gauge
+
+	return m, nil
 }

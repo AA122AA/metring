@@ -56,7 +56,7 @@ func (mr *mockRepo) Get(ctx context.Context, name string) (*domain.Metrics, erro
 		}, nil
 	case NoData:
 		fmt.Printf("Got name - %v\n", name)
-		return nil, fmt.Errorf("data not found")
+		return nil, NewEmptyRepoError(nil)
 	case Error:
 		fmt.Printf("Got name - %v\n", name)
 		return nil, fmt.Errorf("some error")

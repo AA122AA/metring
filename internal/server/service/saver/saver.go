@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -49,11 +48,6 @@ func (s *Saver) Run(ctx context.Context, wg *sync.WaitGroup) {
 	}
 
 	ticker := time.NewTicker(time.Duration(s.StoreInterval) * time.Second)
-
-	// err := s.store()
-	// if err != nil {
-	// 	s.lg.Error("error while storing", zap.Error(err))
-	// }
 
 	for {
 		select {
@@ -104,10 +98,10 @@ func (s *Saver) isEmpty() (Metrics, bool, error) {
 	var pathErr *os.PathError
 	metrics, err := s.readFromFile()
 	if err != nil {
-		if !errors.As(err, &pathErr) {
-			return nil, true, fmt.Errorf("failed to read from file: %w", err)
+		if errors.Is(err, pathErr) {
+			return nil, true, nil
 		}
-		return nil, true, nil
+		return nil, true, fmt.Errorf("failed to read from file: %w", err)
 	}
 	return metrics, false, nil
 }
@@ -155,7 +149,9 @@ func (s *Saver) restore(ctx context.Context) {
 func (s *Saver) store(ctx context.Context) error {
 	data, err := s.repo.GetAll(ctx)
 	if err != nil {
-		if strings.Contains(err.Error(), "no metrics") {
+		// if strings.Contains(err.Error(), "no metrics") {
+		var emptyErr *repository.EmptyRepoError
+		if errors.Is(err, emptyErr) {
 			return nil
 		}
 		return fmt.Errorf("err while getting metrics from repo: %w", err)
@@ -182,8 +178,16 @@ func (s *Saver) load(ctx context.Context) error {
 		return fmt.Errorf("failed to read from file: %w", err)
 	}
 
+	var errs []error
 	for _, m := range metrics {
-		s.repo.Write(ctx, m.ID, m)
+		err := s.repo.Write(ctx, m.ID, m)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
 	}
 
 	s.lg.Debug("loaded data")
