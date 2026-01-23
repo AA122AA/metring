@@ -46,11 +46,20 @@ func TransformToJSON(data *Metrics) *MetricsJSON {
 }
 
 func DBToDomain(metric *query.Metric) *Metrics {
-	return &Metrics{
+	m := &Metrics{
 		ID:    metric.Name,
 		MType: metric.Type,
-		Delta: &metric.Delta.Int64,
-		Value: &metric.Value.Float64,
 		Hash:  metric.Hash.String,
 	}
+
+	if metric.Delta.Valid {
+		m.Delta = &metric.Delta.Int64
+		m.Value = nil
+		return m
+	}
+
+	m.Value = &metric.Value.Float64
+	m.Delta = nil
+
+	return m
 }
