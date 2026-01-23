@@ -14,7 +14,7 @@ func (er *EmptyRepoError) Unwrap() error {
 	return er.err
 }
 
-func (re *EmptyRepoError) Is(target error) bool {
+func (er *EmptyRepoError) Is(target error) bool {
 	_, ok := target.(*EmptyRepoError)
 	return ok
 }
@@ -27,3 +27,5 @@ func NewEmptyRepoError(err error) *EmptyRepoError {
 		err: fmt.Errorf("%w", err),
 	}
 }
+
+// internal/server/repository/errors.go:9:27: methods on the same type should have the same receiver name (seen 1x "re", 2x "er")
