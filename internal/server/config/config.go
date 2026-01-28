@@ -14,6 +14,7 @@ type Config struct {
 	TemplatePath string `json:"templatePath" yaml:"templatePath" env:"TEMPLATE_PATH" default:"internal/server/templates/*.html"`
 	DatabaseDSN  string `json:"databaseDSN" yaml:"databaseDSN" env:"DATABASE_DSN"`
 	SaverCfg     saver.Config
+	Key          string `json:"key" yaml:"key" env:"KEY"`
 }
 
 func (c *Config) ParseConfig() {
@@ -49,6 +50,12 @@ func (c *Config) ParseConfig() {
 		"r",
 		true,
 		"should server restore old metrics or not",
+	)
+	flag.StringVar(
+		&c.Key,
+		"k",
+		"",
+		"key for hash chech",
 	)
 	flag.Parse()
 }
