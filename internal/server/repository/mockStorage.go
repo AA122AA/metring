@@ -1,9 +1,10 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 
-	models "github.com/AA122AA/metring/internal/server/model"
+	"github.com/AA122AA/metring/internal/server/domain"
 )
 
 const (
@@ -20,52 +21,64 @@ func NewMockRepo() *mockRepo {
 	return &mockRepo{}
 }
 
-func (mr *mockRepo) GetAll() (map[string]*models.Metrics, error) {
+func (mr *mockRepo) GetAll(ctx context.Context) (map[string]*domain.Metrics, error) {
 	i := int64(1)
 	f := float64(1.25)
-	return map[string]*models.Metrics{
+	return map[string]*domain.Metrics{
 		Alloc: {
 			ID:    "1",
-			MType: models.Gauge,
+			MType: domain.Gauge,
 			Value: &f,
 		},
 		PollCount: {
 			ID:    "2",
-			MType: models.Counter,
+			MType: domain.Counter,
 			Delta: &i,
 		},
 	}, nil
 }
 
-func (mr *mockRepo) Get(name string) (*models.Metrics, error) {
+func (mr *mockRepo) Get(ctx context.Context, name string) (*domain.Metrics, error) {
 	switch name {
 	case PollCount:
 		fmt.Printf("Got name - %v\n", name)
 		v := int64(2)
-		return &models.Metrics{
-			MType: models.Counter,
+		return &domain.Metrics{
+			MType: domain.Counter,
 			Delta: &v,
 		}, nil
 	case Alloc:
 		fmt.Printf("Got name - %v\n", name)
 		v := float64(1.25)
-		return &models.Metrics{
-			MType: models.Gauge,
+		return &domain.Metrics{
+			MType: domain.Gauge,
 			Value: &v,
 		}, nil
 	case NoData:
 		fmt.Printf("Got name - %v\n", name)
-		return nil, fmt.Errorf("data not found")
+		return nil, NewEmptyRepoError(nil)
 	case Error:
 		fmt.Printf("Got name - %v\n", name)
 		return nil, fmt.Errorf("some error")
 
 	default:
 		fmt.Printf("Got name - %v\n", name)
-		return &models.Metrics{}, nil
+		return &domain.Metrics{}, nil
 	}
 }
 
-func (mr *mockRepo) Write(name string, value *models.Metrics) error {
+func (mr *mockRepo) Write(ctx context.Context, name string, value *domain.Metrics) error {
+	return nil
+}
+
+func (mr *mockRepo) WriteMetrics(ctx context.Context, value []*domain.Metrics) error {
+	return nil
+}
+
+func (mr *mockRepo) Update(ctx context.Context, value *domain.Metrics) error {
+	return nil
+}
+
+func (mr *mockRepo) UpdateMetrics(ctx context.Context, value []*domain.Metrics) error {
 	return nil
 }

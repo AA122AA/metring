@@ -39,6 +39,6 @@ func TestLoad(t *testing.T) {
 	repo := repository.NewMemStorage()
 
 	saver := NewSaver(ctx, cfg, repo)
-	err = saver.load()
+	err = saver.load(ctx)
 	require.NoError(t, err)
 }

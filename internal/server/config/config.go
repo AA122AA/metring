@@ -2,7 +2,6 @@ package config
 
 import (
 	"flag"
-	"fmt"
 	"log"
 
 	"github.com/AA122AA/metring/internal/flags"
@@ -13,6 +12,7 @@ import (
 type Config struct {
 	HostAddr     string `json:"hostAddr" yaml:"hostAddr" env:"ADDRESS" default:"localhost:8080"`
 	TemplatePath string `json:"templatePath" yaml:"templatePath" env:"TEMPLATE_PATH" default:"internal/server/templates/*.html"`
+	DatabaseDSN  string `json:"databaseDSN" yaml:"databaseDSN" env:"DATABASE_DSN"`
 	SaverCfg     saver.Config
 }
 
@@ -26,6 +26,12 @@ func (c *Config) ParseConfig() {
 		"internal/server/templates/*.html",
 		"dir where html templates are stored",
 	)
+	flag.StringVar(
+		&c.DatabaseDSN,
+		"d",
+		"",
+		"string to connect to database",
+	)
 	flag.IntVar(
 		&c.SaverCfg.StoreInterval,
 		"i",
@@ -35,7 +41,7 @@ func (c *Config) ParseConfig() {
 	flag.StringVar(
 		&c.SaverCfg.FileStoragePath,
 		"f",
-		"data/metrics.json",
+		"",
 		"file where old metrics are stored",
 	)
 	flag.BoolVar(
@@ -44,7 +50,6 @@ func (c *Config) ParseConfig() {
 		true,
 		"should server restore old metrics or not",
 	)
-	fmt.Printf("file storage in Parseconfig: %v\n", c.SaverCfg.FileStoragePath)
 	flag.Parse()
 }
 

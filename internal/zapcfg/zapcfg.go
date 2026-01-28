@@ -32,18 +32,14 @@ func consoleColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder
 	}
 }
 
-func consoleDeltaEncoder(now time.Time) zapcore.TimeEncoder {
-	return func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		enc.AppendString(now.Format("2006-01-02 15:04:05"))
-	}
-}
-
 func NewDev() zap.Config {
 	cfg := zap.NewDevelopmentConfig()
 	cfg.DisableStacktrace = true
 	cfg.DisableCaller = true
 	cfg.EncoderConfig.EncodeLevel = consoleColorLevelEncoder
-	cfg.EncoderConfig.EncodeTime = consoleDeltaEncoder(time.Now())
+	cfg.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+		enc.AppendString(t.Format("2006-01-02 15:04:05"))
+	}
 	cfg.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	cfg.EncoderConfig.ConsoleSeparator = " "
 	cfg.EncoderConfig.EncodeName = func(s string, encoder zapcore.PrimitiveArrayEncoder) {

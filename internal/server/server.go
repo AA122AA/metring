@@ -20,6 +20,11 @@ type metricsHandler interface {
 	GetJSON(w http.ResponseWriter, r *http.Request)
 	Update(w http.ResponseWriter, r *http.Request)
 	UpdateJSON(w http.ResponseWriter, r *http.Request)
+	Updates(w http.ResponseWriter, r *http.Request)
+}
+
+type pingHandler interface {
+	Ping(w http.ResponseWriter, r *http.Request)
 }
 
 type Server struct {
@@ -61,13 +66,17 @@ func (s *Server) Run(ctx context.Context) error {
 	return s.srv.Serve(listener)
 }
 
-func NewRouter(ctx context.Context, h metricsHandler) *chi.Mux {
+func NewRouter(ctx context.Context, h metricsHandler, p pingHandler) *chi.Mux {
 	router := chi.NewRouter()
 	router.Get("/", middleware.Wrap(
 		middleware.Wrap(
 			http.HandlerFunc(h.All),
 			middleware.WithLogger(zctx.From(ctx).Named("GetAll"))),
 		middleware.WithCompression()),
+	)
+	router.Get("/ping", middleware.Wrap(
+		http.HandlerFunc(p.Ping),
+		middleware.WithLogger(zctx.From(ctx).Named("Ping"))),
 	)
 	router.Route("/value/", func(r chi.Router) {
 		r.Post("/", middleware.Wrap(
@@ -94,6 +103,15 @@ func NewRouter(ctx context.Context, h metricsHandler) *chi.Mux {
 			middleware.Wrap(
 				http.HandlerFunc(h.Update),
 				middleware.WithLogger(zctx.From(ctx).Named("UpdateValue"))),
+			middleware.WithCompression()),
+		)
+	})
+
+	router.Route("/updates", func(r chi.Router) {
+		r.Post("/", middleware.Wrap(
+			middleware.Wrap(
+				http.HandlerFunc(h.Updates),
+				middleware.WithLogger(zctx.From(ctx).Named("Updates"))),
 			middleware.WithCompression()),
 		)
 	})

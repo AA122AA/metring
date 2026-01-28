@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	models "github.com/AA122AA/metring/internal/server/model"
+	"github.com/AA122AA/metring/internal/server/domain"
 	"github.com/AA122AA/metring/internal/server/repository"
 	"github.com/AA122AA/metring/internal/server/service/metrics"
 	"github.com/AA122AA/metring/internal/server/service/saver"
@@ -111,7 +111,7 @@ func TestGet(t *testing.T) {
 		{
 			name:   "Positive",
 			mName:  repository.Alloc,
-			mType:  models.Gauge,
+			mType:  domain.Gauge,
 			url:    "/value/gauge/gauge",
 			tPath:  "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
 			status: http.StatusOK,
@@ -121,7 +121,7 @@ func TestGet(t *testing.T) {
 		{
 			name:   "Negative, wrong type",
 			mName:  repository.Alloc,
-			mType:  models.Counter,
+			mType:  domain.Counter,
 			url:    "/value/data/Alloc",
 			tPath:  "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
 			status: http.StatusNotFound,
@@ -131,7 +131,7 @@ func TestGet(t *testing.T) {
 		{
 			name:   "Negative, wrong name",
 			mName:  repository.NoData,
-			mType:  models.Gauge,
+			mType:  domain.Gauge,
 			url:    "/value/counter/data",
 			tPath:  "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
 			status: http.StatusNotFound,
@@ -185,7 +185,7 @@ func TestGetJSON(t *testing.T) {
 	ctx := context.Background()
 	cases := []struct {
 		name   string
-		metric *models.MetricsJSON
+		metric *domain.MetricsJSON
 		url    string
 		tPath  string
 		status int
@@ -194,9 +194,9 @@ func TestGetJSON(t *testing.T) {
 	}{
 		{
 			name: "Positive",
-			metric: &models.MetricsJSON{
+			metric: &domain.MetricsJSON{
 				ID:    repository.Alloc,
-				MType: models.Gauge,
+				MType: domain.Gauge,
 			},
 			url:    "/value",
 			tPath:  "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
@@ -206,9 +206,9 @@ func TestGetJSON(t *testing.T) {
 		},
 		{
 			name: "Negative, wrong type",
-			metric: &models.MetricsJSON{
+			metric: &domain.MetricsJSON{
 				ID:    repository.Alloc,
-				MType: models.Counter,
+				MType: domain.Counter,
 			},
 			url:    "/value",
 			tPath:  "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
@@ -218,9 +218,9 @@ func TestGetJSON(t *testing.T) {
 		},
 		{
 			name: "Negative, wrong name",
-			metric: &models.MetricsJSON{
+			metric: &domain.MetricsJSON{
 				ID:    repository.NoData,
-				MType: models.Gauge,
+				MType: domain.Gauge,
 			},
 			url:    "/value",
 			tPath:  "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
@@ -288,7 +288,7 @@ func TestUpdate(t *testing.T) {
 			url:        "/update/gauge/gauge/1.25",
 			tPath:      "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
 			mName:      repository.Alloc,
-			mType:      models.Gauge,
+			mType:      domain.Gauge,
 			value:      "1.25",
 			statusCode: http.StatusOK,
 			pass:       true,
@@ -371,7 +371,7 @@ func TestUpdateJSON(t *testing.T) {
 		name       string
 		url        string
 		tPath      string
-		metric     *models.MetricsJSON
+		metric     *domain.MetricsJSON
 		want       string
 		statusCode int
 		pass       bool
@@ -380,9 +380,9 @@ func TestUpdateJSON(t *testing.T) {
 			name:  "Positive",
 			url:   "/update",
 			tPath: "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
-			metric: &models.MetricsJSON{
+			metric: &domain.MetricsJSON{
 				ID:    repository.Alloc,
-				MType: models.Gauge,
+				MType: domain.Gauge,
 				Value: &v,
 			},
 			statusCode: http.StatusOK,
@@ -392,9 +392,9 @@ func TestUpdateJSON(t *testing.T) {
 			name:  "Negative, no mName",
 			url:   "/update",
 			tPath: "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
-			metric: &models.MetricsJSON{
+			metric: &domain.MetricsJSON{
 				ID:    "",
-				MType: models.Gauge,
+				MType: domain.Gauge,
 				Value: &v,
 			},
 			statusCode: http.StatusBadRequest,
@@ -404,7 +404,7 @@ func TestUpdateJSON(t *testing.T) {
 			name:  "Negative, bad type",
 			url:   "/update",
 			tPath: "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
-			metric: &models.MetricsJSON{
+			metric: &domain.MetricsJSON{
 				ID:    repository.Alloc,
 				MType: "lol",
 				Value: &v,
@@ -416,9 +416,9 @@ func TestUpdateJSON(t *testing.T) {
 			name:  "Negative, bad value",
 			url:   "/update/",
 			tPath: "/home/artem/Documents/development/Yandex.Practicum/metring/internal/server/templates/*.html",
-			metric: &models.MetricsJSON{
+			metric: &domain.MetricsJSON{
 				ID:    repository.Alloc,
-				MType: models.Gauge,
+				MType: domain.Gauge,
 			},
 			statusCode: http.StatusBadRequest,
 			pass:       false,

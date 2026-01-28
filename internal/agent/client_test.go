@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	models "github.com/AA122AA/metring/internal/server/model"
+	"github.com/AA122AA/metring/internal/server/domain"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,7 +22,7 @@ func TestSendUpdate_always_pass(t *testing.T) {
 	testMap := map[string]*Metric{
 		testMName: {
 			ID:    "counter",
-			MType: models.Counter,
+			MType: domain.Counter,
 			// Value: "1",
 			Delta: &d,
 		},
