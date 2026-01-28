@@ -23,10 +23,10 @@ run-server-file: build-server
 	./cmd/server/server -a "localhost:${PORT}" -i 10 -f "data/metrics.json"
 
 run-server-db: build-server
-	./cmd/server/server -a "localhost:${PORT}" -i 10 -d ${DSN}
+	./cmd/server/server -a "localhost:${PORT}" -i 10 -d ${DSN} -k "key"
 
 run-agent: build-agent
-	./cmd/agent/agent -a "localhost:${PORT}" -r 4
+	./cmd/agent/agent -a "localhost:${PORT}" -r 4 -k "key"
 
 tidy:
 	/usr/local/go/bin/go mod tidy && /usr/local/go/bin/go mod vendor
@@ -151,7 +151,7 @@ autotest-12: build-server build-agent
             -server-port=8080 \
             -source-path=.
 
-autotest-13: build-server build-agent
+autotest-13: delete-all build-server build-agent
 	./metricstest_v2 -test.v -test.run=^TestIteration13$$ \
             -agent-binary-path=cmd/agent/agent \
             -binary-path=cmd/server/server \
@@ -159,4 +159,17 @@ autotest-13: build-server build-agent
             -server-port=8080 \
             -source-path=.
 
-autotests: build-server build-agent autotest-1 autotest-2 autotest-3 autotest-4 autotest-5 autotest-6 autotest-7 autotest-8 autotest-9 autotest-10 autotest-11 autotest-12
+autotest-14: delete-all build-server build-agent
+	./metricstest_v2 -test.v -test.run=^TestIteration14$$ \
+            -agent-binary-path=cmd/agent/agent \
+            -binary-path=cmd/server/server \
+            -database-dsn=${DSN} \
+            -server-port=8080 \
+            -key="key" \
+            -source-path=.
+
+autotests: build-server build-agent autotest-1 autotest-2 autotest-3 autotest-4 autotest-5 autotest-6 autotest-7 autotest-8 autotest-9 autotest-10 autotest-11 autotest-12 autotest-13 autotest-14
+
+test-get:
+	curl -v -X POST -d '{"id":"GetSetZip20", "type":"counter", "delta":5}' localhost:8082/update/
+	curl -v -X POST -d '{"id":"GetSetZip20", "type":"counter"}' localhost:8082/value/

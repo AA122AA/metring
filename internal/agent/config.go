@@ -10,6 +10,7 @@ type Config struct {
 	PollInterval   int    `json:"pollInterval" yaml:"pollInterval" env:"POLL_INTERVAL" default:"2"`
 	URL            string `json:"url" yaml:"url" env:"ADDRESS" default:"http://localhost:8080"`
 	ReportInterval int    `json:"reportInterval" yaml:"reportInterval" env:"REPORT_INTERVAL" default:"10"`
+	Key            string `json:"key" yaml:"key" env:"KEY"`
 }
 
 func (c *Config) ParseFlags() {
@@ -18,6 +19,7 @@ func (c *Config) ParseFlags() {
 	flag.Func("a", "ip:port where server will serve", func(flagArgs string) error {
 		return flags.ParseAddr(flagArgs, &c.URL)
 	})
+	flag.StringVar(&c.Key, "k", "", "key for sha256 hash algo")
 
 	flag.Parse()
 }

@@ -1,9 +1,9 @@
 -- name: Get :one
-SELECT * FROM metrics
+SELECT name, type, delta, value, hash FROM metrics
 WHERE name = $1 LIMIT 1;
 
 -- name: GetAll :many
-SELECT * FROM metrics
+SELECT name, type, delta, value, hash FROM metrics
 ORDER BY id;
 
 -- name: Write :exec
@@ -14,5 +14,5 @@ INSERT INTO metrics (
 );
 
 -- name: Update :exec
-UPDATE metrics SET (delta, value) = ($1, $2)
-WHERE name = $3;
+UPDATE metrics SET (delta, value, updated_at) = ($1, $2, $3)
+WHERE name = $4;
