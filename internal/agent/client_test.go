@@ -410,6 +410,7 @@ func TestMakeRequest(t *testing.T) {
 
 			if tCase.pass {
 				require.NoError(t, err)
+				defer resp.Body.Close()
 				require.Equal(t, http.StatusOK, resp.StatusCode)
 				return
 			}
