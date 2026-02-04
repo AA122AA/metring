@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
+	"sort"
 	"time"
 
 	"github.com/AA122AA/metring/internal/server/database"
@@ -31,7 +31,7 @@ func NewPSQLStorage(ctx context.Context, queries *query.Queries, db *database.Da
 	}
 }
 
-func (ps *PSQLStorage) getAllWithRetry(ctx context.Context) ([]query.Metric, error) {
+func (ps *PSQLStorage) getAllWithRetry(ctx context.Context) ([]query.GetAllRow, error) {
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 	intervals := []int{1, 3, 5}
@@ -46,9 +46,6 @@ func (ps *PSQLStorage) getAllWithRetry(ctx context.Context) ([]query.Metric, err
 			if err == nil {
 				return metrics, nil
 			}
-
-			t := reflect.TypeOf(err)
-			ps.lg.Warn("err type", zap.Any("type", t))
 
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) {
@@ -79,7 +76,7 @@ func (ps *PSQLStorage) GetAll(ctx context.Context) (map[string]*domain.Metrics, 
 	mm := make(map[string]*domain.Metrics)
 
 	for _, m := range metrics {
-		mm[m.Name] = domain.DBToDomain(&m)
+		mm[m.Name] = domain.DBToDomain(&query.GetRow{Name: m.Name, Type: m.Type, Delta: m.Delta, Value: m.Value, Hash: m.Hash})
 	}
 
 	return mm, nil
@@ -104,6 +101,10 @@ func (ps *PSQLStorage) Update(ctx context.Context, value *domain.Metrics) error 
 }
 
 func (ps *PSQLStorage) UpdateMetrics(ctx context.Context, values []*domain.Metrics) error {
+	sort.Slice(values, func(i, j int) bool {
+		return values[i].ID < values[j].ID
+	})
+
 	tx, err := ps.db.BeginTx(ctx)
 	if err != nil {
 		ps.lg.Error("cannot begin transaction", zap.Error(err))
@@ -153,9 +154,14 @@ func (ps *PSQLStorage) WriteMetrics(ctx context.Context, values []*domain.Metric
 	return tx.Commit(ctx)
 }
 
+// Подумать как это сделать через generic
 func parseUpdate(value *domain.Metrics) *query.UpdateParams {
 	arg := &query.UpdateParams{
 		Name: value.ID,
+		UpdatedAt: pgtype.Timestamptz{
+			Time:  time.Now(),
+			Valid: true,
+		},
 	}
 	switch value.MType {
 	case domain.Counter:
@@ -173,6 +179,7 @@ func parseUpdate(value *domain.Metrics) *query.UpdateParams {
 	return arg
 }
 
+// Подумать как это сделать через generic
 func parseWrite(value *domain.Metrics) *query.WriteParams {
 	arg := &query.WriteParams{
 		Name: value.ID,

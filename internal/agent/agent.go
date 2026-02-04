@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"fmt"
-	"maps"
 	"math/rand/v2"
 	"reflect"
 	"runtime"
@@ -12,6 +11,8 @@ import (
 
 	"github.com/AA122AA/metring/internal/server/domain"
 	"github.com/go-faster/sdk/zctx"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 	"go.uber.org/zap"
 )
 
@@ -23,76 +24,177 @@ type Metric struct {
 }
 
 type MetricAgent struct {
-	mm           map[string]*Metric
-	mu           sync.Mutex
 	pollInterval int
 	lg           *zap.Logger
 }
 
 func NewMetricAgent(ctx context.Context, cfg *Config) *MetricAgent {
 	return &MetricAgent{
-		mm:           make(map[string]*Metric),
 		pollInterval: cfg.PollInterval,
 		lg:           zctx.From(ctx).Named("metrics agent"),
 	}
 }
 
-func (ma *MetricAgent) Run(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
+func (ma *MetricAgent) Run(ctx context.Context, wg *sync.WaitGroup) <-chan map[string]*Metric {
+	// хочу хранить результаты за последние 5 минут
+	toStore := 5 * 60 / ma.pollInterval
+	results := make(chan map[string]*Metric, toStore)
+
+	psResults := ma.GatherGopsutilMetrics(ctx, wg)
+	runResults := ma.GatherRuntimeMetrics(ctx, wg)
+
+	wg.Add(1)
+	go func(ctx context.Context) {
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case res := <-psResults:
+				results <- res
+			case res := <-runResults:
+				results <- res
+			}
+		}
+	}(ctx)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		<-ctx.Done()
+		for {
+			_, psClosed := <-psResults
+			_, runClosed := <-runResults
+			if !psClosed && !runClosed {
+				ma.lg.Info("got cancellation, returning")
+				close(results)
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+
+	return results
+}
+
+func (ma *MetricAgent) GatherGopsutilMetrics(ctx context.Context, wg *sync.WaitGroup) <-chan map[string]*Metric {
+	var mu sync.Mutex
+	out := make(chan map[string]*Metric)
 	ticker := time.NewTicker(time.Duration(ma.pollInterval) * time.Second)
-	for {
-		select {
-		case <-ctx.Done():
-			ma.lg.Info("got cancellation, returning")
-			return
-		case <-ticker.C:
-			ma.GatherMetrics()
+
+	wg.Add(1)
+	go func() {
+		defer ticker.Stop()
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				ma.lg.Info("got cancellation, returning")
+				close(out)
+				return
+			case <-ticker.C:
+
+				metricsMap := make(map[string]*Metric, 30)
+				v, err := mem.VirtualMemory()
+				if err != nil {
+					ma.lg.Error("error while getting virtual memoty", zap.Error(err))
+				}
+
+				mu.Lock()
+				free := float64(v.Free)
+				metricsMap["FreeMemory"] = &Metric{
+					ID:    "FreeMemory",
+					MType: domain.Gauge,
+					Value: &free,
+				}
+
+				total := float64(v.Total)
+				metricsMap["TotalMemory"] = &Metric{
+					ID:    "TotalMemory",
+					MType: domain.Gauge,
+					Value: &total,
+				}
+
+				c, err := cpu.Percent(1*time.Second, true)
+				if err != nil {
+					ma.lg.Error("error while getting cpu utilization", zap.Error(err))
+				}
+				for i, util := range c {
+					name := fmt.Sprintf("CPUutilization%d", i)
+					metricsMap[name] = &Metric{
+						ID:    name,
+						MType: domain.Gauge,
+						Value: &util,
+					}
+				}
+				mu.Unlock()
+
+				out <- metricsMap
+			}
 		}
-	}
+	}()
+	return out
 }
 
-func (ma *MetricAgent) GetMetrics() map[string]*Metric {
-	ma.mu.Lock()
-	defer ma.mu.Unlock()
-
-	return maps.Clone(ma.mm)
-}
-
-func (ma *MetricAgent) GatherMetrics() {
-	ma.mu.Lock()
-	defer ma.mu.Unlock()
-	ma.lg.Debug("Start Gathering metrics")
-
-	// Читаем метрики
+func (ma *MetricAgent) GatherRuntimeMetrics(ctx context.Context, wg *sync.WaitGroup) <-chan map[string]*Metric {
+	var mu sync.Mutex
 	memoryStats := &runtime.MemStats{}
-	runtime.ReadMemStats(memoryStats)
+	out := make(chan map[string]*Metric)
+	ticker := time.NewTicker(time.Duration(ma.pollInterval) * time.Second)
 
-	v := reflect.ValueOf(*memoryStats)
-	t := v.Type()
-	for i := range v.NumField() {
-		m, err := createMetric(v, t, i)
-		if err != nil {
-			continue
+	wg.Add(1)
+	go func() {
+		defer ticker.Stop()
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				ma.lg.Info("got cancellation, returning")
+				close(out)
+				return
+			case <-ticker.C:
+				metricsMap := make(map[string]*Metric, 30)
+				ma.lg.Debug("Start Gathering metrics")
+				// Читаем метрики
+				runtime.ReadMemStats(memoryStats)
+
+				// Записываем в мапу
+				v := reflect.ValueOf(*memoryStats)
+				t := v.Type()
+
+				mu.Lock()
+				for i := range v.NumField() {
+					m, err := createMetric(v, t, i)
+					if err != nil {
+						continue
+					}
+
+					metricsMap[m.ID] = m
+				}
+
+				d := int64(1)
+				metricsMap["PollCount"] = &Metric{
+					ID:    "PollCount",
+					MType: domain.Counter,
+					Delta: &d,
+				}
+
+				r := rand.Float64()
+				metricsMap["RandomValue"] = &Metric{
+					ID:    "RandomValue",
+					MType: domain.Gauge,
+					Value: &r,
+				}
+				mu.Unlock()
+
+				out <- metricsMap
+				ma.lg.Debug("Finish Gathering metrics")
+			}
 		}
+	}()
 
-		ma.mm[m.ID] = m
-	}
-
-	d := int64(1)
-	ma.mm["PollCount"] = &Metric{
-		ID:    "PollCount",
-		MType: domain.Counter,
-		Delta: &d,
-	}
-
-	r := rand.Float64()
-	ma.mm["RandomValue"] = &Metric{
-		ID:    "RandomValue",
-		MType: domain.Gauge,
-		Value: &r,
-	}
-
-	ma.lg.Debug("Finish Gathering metrics")
+	return out
 }
 
 func createMetric(v reflect.Value, t reflect.Type, i int) (*Metric, error) {

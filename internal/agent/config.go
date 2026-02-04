@@ -10,6 +10,8 @@ type Config struct {
 	PollInterval   int    `json:"pollInterval" yaml:"pollInterval" env:"POLL_INTERVAL" default:"2"`
 	URL            string `json:"url" yaml:"url" env:"ADDRESS" default:"http://localhost:8080"`
 	ReportInterval int    `json:"reportInterval" yaml:"reportInterval" env:"REPORT_INTERVAL" default:"10"`
+	Key            string `json:"key" yaml:"key" env:"KEY"`
+	RateLimit      int    `json:"rateLimit" yaml:"rateLimit" env:"RATE_LIMIT"`
 }
 
 func (c *Config) ParseFlags() {
@@ -18,24 +20,8 @@ func (c *Config) ParseFlags() {
 	flag.Func("a", "ip:port where server will serve", func(flagArgs string) error {
 		return flags.ParseAddr(flagArgs, &c.URL)
 	})
+	flag.StringVar(&c.Key, "k", "", "key for sha256 hash algo")
+	flag.IntVar(&c.RateLimit, "l", 3, "how many workers can make requiests")
 
 	flag.Parse()
 }
-
-// func Read(path string) (*Config, error) {
-// 	if path == "" {
-// 		return &Config{}, nil
-// 	}
-
-// 	f, err := os.ReadFile(path)
-// 	if err != nil {
-// 		return &Config{}, err
-// 	}
-
-// 	var config *Config
-// 	if err = yaml.UnmarshalStrict(f, &config); err != nil {
-// 		return &Config{}, err
-// 	}
-
-// 	return config, nil
-// }

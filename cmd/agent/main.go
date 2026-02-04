@@ -36,11 +36,6 @@ func main() {
 		lg.Fatal("error setting defaults for config", zap.Error(err))
 	}
 
-	// cfg, err := agent.Read("")
-	// if err != nil {
-	// 	lg.Fatal("got interruption, cancelling ctx", zap.Error(err))
-	// }
-
 	cfg.ParseFlags()
 
 	if err = env.Parse(cfg); err != nil {
@@ -57,13 +52,12 @@ func main() {
 	var wg sync.WaitGroup
 
 	mAgent := agent.NewMetricAgent(ctx, cfg)
-	wg.Add(1)
-	go mAgent.Run(ctx, &wg)
+	metricsCh := mAgent.Run(ctx, &wg)
 	lg.Info("Ran agent")
 
-	client := agent.NewMetricClient(ctx, mAgent, cfg)
+	client := agent.NewMetricClient(ctx, metricsCh, cfg)
 	wg.Add(1)
-	go client.Run(ctx, &wg)
+	go client.Run(ctx, metricsCh, &wg)
 	lg.Info("Ran client")
 
 	wg.Wait()
