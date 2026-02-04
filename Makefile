@@ -1,4 +1,5 @@
 PORT ?= 8082
+TEST_PORT ?= 8085
 
 DB_USER ?= metring
 DB_PASSWORD ?= StrongPass123!
@@ -54,15 +55,16 @@ delete-all:
 ## >>> Autotests <<<
 
 autotest-1: build-server build-agent
-	./metricstest_v2 -test.v -test.count 1 -test.run=^TestIteration1$$ -binary-path=cmd/server/server
+	./metricstest_v2 -test.v -test.count 1 -test.run=^TestIteration1$$ \
+	-binary-path=cmd/server/server \
 
 autotest-2: build-server build-agent
 	./metricstest_v2 -test.v -test.run=^TestIteration2A$$ \
 	-source-path=. \
-	-agent-binary-path=cmd/agent/agent
+	-agent-binary-path=cmd/agent/agent \
 	./metricstest_v2 -test.v -test.run=^TestIteration2B$$ \
 	-source-path=. \
-	-agent-binary-path=cmd/agent/agent
+	-agent-binary-path=cmd/agent/agent \
 
 autotest-3: build-server build-agent
 	./metricstest_v2 -test.v -test.run=^TestIteration3A$$ \
@@ -78,37 +80,37 @@ autotest-4: build-server build-agent
 	./metricstest_v2 -test.v -test.run=^TestIteration4$$ \
 	-agent-binary-path=cmd/agent/agent \
 	-binary-path=cmd/server/server \
-	-server-port=8080 \
+	-server-port=${TEST_PORT} \
 	-source-path=.
 
 autotest-5: build-server build-agent
-	SERVER_PORT=8080 ADDRESS="localhost:$${SERVER_PORT}" TEMP_FILE="lol" ./metricstest_v2 \
+	SERVER_PORT=${TEST_PORT} ADDRESS="localhost:$${SERVER_PORT}" TEMP_FILE="lol" ./metricstest_v2 \
 	-test.v \
 	-test.run=^TestIteration5$$ \
     -agent-binary-path=cmd/agent/agent \
     -binary-path=cmd/server/server \
-    -server-port=8080 \
+    -server-port=${TEST_PORT} \
     -source-path=.
 
 autotest-6: build-server build-agent
 	./metricstest_v2 -test.v -test.run=^TestIteration6$$ \
 	-agent-binary-path=cmd/agent/agent \
 	-binary-path=cmd/server/server \
-	-server-port=8080 \
+	-server-port=${TEST_PORT} \
 	-source-path=.
 
 autotest-7: build-server build-agent
 	./metricstest_v2 -test.v -test.run=^TestIteration7$$ \
 	-agent-binary-path=cmd/agent/agent \
 	-binary-path=cmd/server/server \
-	-server-port=8080 \
+	-server-port=${TEST_PORT} \
 	-source-path=.
 
 autotest-8: build-server build-agent
 	./metricstest_v2 -test.v -test.run=^TestIteration8$$ \
 	-agent-binary-path=cmd/agent/agent \
 	-binary-path=cmd/server/server \
-	-server-port=8080 \
+	-server-port=${TEST_PORT} \
 	-source-path=.
 
 autotest-9: build-server build-agent
@@ -116,7 +118,7 @@ autotest-9: build-server build-agent
             -agent-binary-path=cmd/agent/agent \
             -binary-path=cmd/server/server \
             -file-storage-path="data/metrics.json" \
-            -server-port=8080 \
+            -server-port=${TEST_PORT} \
             -source-path=.
 
 autotest-10: build-server build-agent
@@ -125,14 +127,14 @@ autotest-10: build-server build-agent
             -binary-path=cmd/server/server \
             -file-storage-path="data/metrics.json" \
             -database-dsn=${DSN} \
-            -server-port=8080 \
+            -server-port=${TEST_PORT} \
             -source-path=.
 	./metricstest_v2 -test.v -test.run=^TestIteration10B$$ \
 	        -agent-binary-path=cmd/agent/agent \
 			-binary-path=cmd/server/server \
             -file-storage-path="data/metrics.json" \
             -database-dsn=${DSN} \
-            -server-port=8080 \
+            -server-port=${TEST_PORT} \
             -source-path=.
 
 autotest-11: build-server build-agent
@@ -140,7 +142,7 @@ autotest-11: build-server build-agent
             -agent-binary-path=cmd/agent/agent \
             -binary-path=cmd/server/server \
             -database-dsn=${DSN} \
-            -server-port=8080 \
+            -server-port=${TEST_PORT} \
             -source-path=.
 
 autotest-12: build-server build-agent
@@ -148,7 +150,7 @@ autotest-12: build-server build-agent
             -agent-binary-path=cmd/agent/agent \
             -binary-path=cmd/server/server \
             -database-dsn=${DSN} \
-            -server-port=8080 \
+            -server-port=${TEST_PORT} \
             -source-path=.
 
 autotest-13: delete-all build-server build-agent
@@ -156,7 +158,7 @@ autotest-13: delete-all build-server build-agent
             -agent-binary-path=cmd/agent/agent \
             -binary-path=cmd/server/server \
             -database-dsn=${DSN} \
-            -server-port=8080 \
+            -server-port=${TEST_PORT} \
             -source-path=.
 
 autotest-14: delete-all build-server build-agent
@@ -164,7 +166,7 @@ autotest-14: delete-all build-server build-agent
             -agent-binary-path=cmd/agent/agent \
             -binary-path=cmd/server/server \
             -database-dsn=${DSN} \
-            -server-port=8080 \
+            -server-port=${TEST_PORT} \
             -key="key" \
             -source-path=.
 

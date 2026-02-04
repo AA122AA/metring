@@ -81,7 +81,6 @@ func (ma *MetricAgent) Run(ctx context.Context, wg *sync.WaitGroup) <-chan map[s
 func (ma *MetricAgent) GatherGopsutilMetrics(ctx context.Context, wg *sync.WaitGroup) <-chan map[string]*Metric {
 	var mu sync.Mutex
 	out := make(chan map[string]*Metric)
-	metricsMap := make(map[string]*Metric, 30)
 	ticker := time.NewTicker(time.Duration(ma.pollInterval) * time.Second)
 
 	wg.Add(1)
@@ -96,6 +95,7 @@ func (ma *MetricAgent) GatherGopsutilMetrics(ctx context.Context, wg *sync.WaitG
 				return
 			case <-ticker.C:
 
+				metricsMap := make(map[string]*Metric, 30)
 				v, err := mem.VirtualMemory()
 				if err != nil {
 					ma.lg.Error("error while getting virtual memoty", zap.Error(err))
@@ -141,7 +141,6 @@ func (ma *MetricAgent) GatherRuntimeMetrics(ctx context.Context, wg *sync.WaitGr
 	var mu sync.Mutex
 	memoryStats := &runtime.MemStats{}
 	out := make(chan map[string]*Metric)
-	metricsMap := make(map[string]*Metric, 30)
 	ticker := time.NewTicker(time.Duration(ma.pollInterval) * time.Second)
 
 	wg.Add(1)
@@ -155,6 +154,7 @@ func (ma *MetricAgent) GatherRuntimeMetrics(ctx context.Context, wg *sync.WaitGr
 				close(out)
 				return
 			case <-ticker.C:
+				metricsMap := make(map[string]*Metric, 30)
 				ma.lg.Debug("Start Gathering metrics")
 				// Читаем метрики
 				runtime.ReadMemStats(memoryStats)
