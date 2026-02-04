@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/AA122AA/metring/internal/server/domain"
@@ -69,8 +70,11 @@ func TestSendJSON(t *testing.T) {
 
 		tCase.cfg.URL = server.URL
 
+		var wg sync.WaitGroup
 		ma := NewMetricAgent(ctx, tCase.cfg)
-		mc := NewMetricClient(ctx, ma, tCase.cfg)
+		ch := ma.Run(ctx, &wg)
+
+		mc := NewMetricClient(ctx, ch, tCase.cfg)
 		err := mc.SendUpdateJSON(tCase.mm)
 		require.NoError(t, err)
 	})
@@ -94,8 +98,10 @@ func TestSendJSON(t *testing.T) {
 		}
 
 		// Test body
+		var wg sync.WaitGroup
 		ma := NewMetricAgent(ctx, tCase.cfg)
-		mc := NewMetricClient(ctx, ma, tCase.cfg)
+		ch := ma.Run(ctx, &wg)
+		mc := NewMetricClient(ctx, ch, tCase.cfg)
 		err := mc.SendUpdateJSON(tCase.mm)
 		require.ErrorContains(t, err, "error building url")
 	})
@@ -145,8 +151,10 @@ func TestSendJSON(t *testing.T) {
 
 		tCase.cfg.URL = server.URL
 
+		var wg sync.WaitGroup
 		ma := NewMetricAgent(ctx, tCase.cfg)
-		mc := NewMetricClient(ctx, ma, tCase.cfg)
+		ch := ma.Run(ctx, &wg)
+		mc := NewMetricClient(ctx, ch, tCase.cfg)
 		err := mc.SendUpdateJSON(tCase.mm)
 		require.NoError(t, err)
 	})
@@ -198,8 +206,10 @@ func TestSendUpdate(t *testing.T) {
 
 		tCase.cfg.URL = srv.URL
 
+		var wg sync.WaitGroup
 		ma := NewMetricAgent(ctx, tCase.cfg)
-		mc := NewMetricClient(ctx, ma, tCase.cfg)
+		ch := ma.Run(ctx, &wg)
+		mc := NewMetricClient(ctx, ch, tCase.cfg)
 		err := mc.SendUpdate(tCase.mm)
 		require.NoError(t, err)
 	})
@@ -224,8 +234,10 @@ func TestSendUpdate(t *testing.T) {
 
 		// Test body
 
+		var wg sync.WaitGroup
 		ma := NewMetricAgent(ctx, tCase.cfg)
-		mc := NewMetricClient(ctx, ma, tCase.cfg)
+		ch := ma.Run(ctx, &wg)
+		mc := NewMetricClient(ctx, ch, tCase.cfg)
 		err := mc.SendUpdate(tCase.mm)
 		require.ErrorContains(t, err, "error building url")
 	})
@@ -249,8 +261,10 @@ func TestSendUpdate(t *testing.T) {
 		}
 
 		// Test body
+		var wg sync.WaitGroup
 		ma := NewMetricAgent(ctx, tCase.cfg)
-		mc := NewMetricClient(ctx, ma, tCase.cfg)
+		ch := ma.Run(ctx, &wg)
+		mc := NewMetricClient(ctx, ch, tCase.cfg)
 		err := mc.SendUpdate(tCase.mm)
 		require.ErrorContains(t, err, "error doing request")
 	})
@@ -285,8 +299,10 @@ func TestSendUpdate(t *testing.T) {
 
 		tCase.cfg.URL = srv.URL
 
+		var wg sync.WaitGroup
 		ma := NewMetricAgent(ctx, tCase.cfg)
-		mc := NewMetricClient(ctx, ma, tCase.cfg)
+		ch := ma.Run(ctx, &wg)
+		mc := NewMetricClient(ctx, ch, tCase.cfg)
 		err := mc.SendUpdate(tCase.mm)
 		require.ErrorContains(t, err, "wrong status")
 	})
@@ -403,8 +419,10 @@ func TestMakeRequest(t *testing.T) {
 			}
 
 			cfg.URL = srv.URL
+			var wg sync.WaitGroup
 			ma := NewMetricAgent(ctx, cfg)
-			mc := NewMetricClient(ctx, ma, cfg)
+			ch := ma.Run(ctx, &wg)
+			mc := NewMetricClient(ctx, ch, cfg)
 
 			resp, err := mc.makeRequest(tCase.url, tCase.body, "")
 

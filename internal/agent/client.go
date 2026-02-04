@@ -27,39 +27,65 @@ type MetricClient struct {
 	key            string
 
 	client         *http.Client
-	agent          *MetricAgent
 	lg             *zap.Logger
 	maxRetry       int
 	retryIntervals []int
+	rateLimit      int
 }
 
-func NewMetricClient(ctx context.Context, mAgent *MetricAgent, cfg *Config) *MetricClient {
+func NewMetricClient(ctx context.Context, metricsCh <-chan map[string]*Metric, cfg *Config) *MetricClient {
 	return &MetricClient{
 		reportInterval: cfg.ReportInterval,
 		baseURL:        cfg.URL,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		agent:          mAgent,
 		lg:             zctx.From(ctx).Named("metrics client"),
 		maxRetry:       3,
 		retryIntervals: []int{1, 3, 5},
 		key:            cfg.Key,
+		rateLimit:      cfg.RateLimit,
 	}
 }
 
-func (mc *MetricClient) Run(ctx context.Context, wg *sync.WaitGroup) {
+func (mc *MetricClient) worker(ctx context.Context, jobCh <-chan map[string]*Metric, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case metrics := <-jobCh:
+			mc.withRetry(ctx, mc.SendUpdateJSONBatch, metrics)
+		}
+	}
+}
+
+func (mc *MetricClient) Run(ctx context.Context, metricsCh <-chan map[string]*Metric, wg *sync.WaitGroup) {
 	defer wg.Done()
 	timer := time.NewTimer(time.Duration(mc.reportInterval) * time.Second)
 	defer timer.Stop()
+	jobCh := make(chan map[string]*Metric, 100)
+
+	for i := 0; i < mc.rateLimit; i++ {
+		wg.Add(1)
+		go mc.worker(ctx, jobCh, wg)
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			mc.lg.Info("got cancellation, returning")
+			close(jobCh)
 			return
 		case <-timer.C:
-			mc.withRetry(ctx, mc.SendUpdateJSONBatch, mc.agent.GetMetrics())
+			for metrics := range metricsCh {
+				if len(metricsCh) == 0 {
+					break
+				}
+				jobCh <- metrics
+			}
+			mc.lg.Warn("jobs to do", zap.Int("amount", len(jobCh)))
+
 			timer.Reset(time.Duration(mc.reportInterval) * time.Second)
 		}
 	}

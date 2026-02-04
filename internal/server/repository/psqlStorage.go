@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
+	"sort"
 	"time"
 
 	"github.com/AA122AA/metring/internal/server/database"
@@ -46,9 +46,6 @@ func (ps *PSQLStorage) getAllWithRetry(ctx context.Context) ([]query.GetAllRow, 
 			if err == nil {
 				return metrics, nil
 			}
-
-			t := reflect.TypeOf(err)
-			ps.lg.Warn("err type", zap.Any("type", t))
 
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) {
@@ -104,6 +101,10 @@ func (ps *PSQLStorage) Update(ctx context.Context, value *domain.Metrics) error 
 }
 
 func (ps *PSQLStorage) UpdateMetrics(ctx context.Context, values []*domain.Metrics) error {
+	sort.Slice(values, func(i, j int) bool {
+		return values[i].ID < values[j].ID
+	})
+
 	tx, err := ps.db.BeginTx(ctx)
 	if err != nil {
 		ps.lg.Error("cannot begin transaction", zap.Error(err))

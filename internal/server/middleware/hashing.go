@@ -67,7 +67,6 @@ func WithHashCheck(lg *zap.Logger, key string) Middleware {
 			}
 
 			// Проверяем, есть ли hash в запросе
-			lg.Warn("headers", zap.Any("headers", r.Header.Clone()))
 			hashFromHeader := r.Header.Get("HashSHA256")
 			if hashFromHeader == "" {
 				lg.Error("No hash was provided", zap.Any("headers", r.Header.Clone()))
