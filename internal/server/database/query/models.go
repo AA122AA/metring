@@ -9,10 +9,12 @@ import (
 )
 
 type Metric struct {
-	ID    int64
-	Name  string
-	Type  string
-	Delta pgtype.Int8
-	Value pgtype.Float8
-	Hash  pgtype.Text
+	ID        int64
+	Name      string
+	Type      string
+	Delta     pgtype.Int8
+	Value     pgtype.Float8
+	Hash      pgtype.Text
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
 }

@@ -12,15 +12,22 @@ import (
 )
 
 const get = `-- name: Get :one
-SELECT id, name, type, delta, value, hash FROM metrics
+SELECT name, type, delta, value, hash FROM metrics
 WHERE name = $1 LIMIT 1
 `
 
-func (q *Queries) Get(ctx context.Context, name string) (Metric, error) {
+type GetRow struct {
+	Name  string
+	Type  string
+	Delta pgtype.Int8
+	Value pgtype.Float8
+	Hash  pgtype.Text
+}
+
+func (q *Queries) Get(ctx context.Context, name string) (GetRow, error) {
 	row := q.db.QueryRow(ctx, get, name)
-	var i Metric
+	var i GetRow
 	err := row.Scan(
-		&i.ID,
 		&i.Name,
 		&i.Type,
 		&i.Delta,
@@ -31,21 +38,28 @@ func (q *Queries) Get(ctx context.Context, name string) (Metric, error) {
 }
 
 const getAll = `-- name: GetAll :many
-SELECT id, name, type, delta, value, hash FROM metrics
+SELECT name, type, delta, value, hash FROM metrics
 ORDER BY id
 `
 
-func (q *Queries) GetAll(ctx context.Context) ([]Metric, error) {
+type GetAllRow struct {
+	Name  string
+	Type  string
+	Delta pgtype.Int8
+	Value pgtype.Float8
+	Hash  pgtype.Text
+}
+
+func (q *Queries) GetAll(ctx context.Context) ([]GetAllRow, error) {
 	rows, err := q.db.Query(ctx, getAll)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Metric
+	var items []GetAllRow
 	for rows.Next() {
-		var i Metric
+		var i GetAllRow
 		if err := rows.Scan(
-			&i.ID,
 			&i.Name,
 			&i.Type,
 			&i.Delta,
@@ -63,18 +77,24 @@ func (q *Queries) GetAll(ctx context.Context) ([]Metric, error) {
 }
 
 const update = `-- name: Update :exec
-UPDATE metrics SET (delta, value) = ($1, $2)
-WHERE name = $3
+UPDATE metrics SET (delta, value, updated_at) = ($1, $2, $3)
+WHERE name = $4
 `
 
 type UpdateParams struct {
-	Delta pgtype.Int8
-	Value pgtype.Float8
-	Name  string
+	Delta     pgtype.Int8
+	Value     pgtype.Float8
+	UpdatedAt pgtype.Timestamptz
+	Name      string
 }
 
 func (q *Queries) Update(ctx context.Context, arg UpdateParams) error {
-	_, err := q.db.Exec(ctx, update, arg.Delta, arg.Value, arg.Name)
+	_, err := q.db.Exec(ctx, update,
+		arg.Delta,
+		arg.Value,
+		arg.UpdatedAt,
+		arg.Name,
+	)
 	return err
 }
 

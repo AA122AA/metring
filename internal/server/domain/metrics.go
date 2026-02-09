@@ -45,7 +45,7 @@ func TransformToJSON(data *Metrics) *MetricsJSON {
 	}
 }
 
-func DBToDomain(metric *query.Metric) *Metrics {
+func DBToDomain(metric *query.GetRow) *Metrics {
 	m := &Metrics{
 		ID:    metric.Name,
 		MType: metric.Type,

@@ -121,7 +121,7 @@ func run() error {
 	pingHandler := mHandler.NewPingHandler(ctx, dBase)
 
 	// Init routers
-	router := server.NewRouter(ctx, metricHandler, pingHandler)
+	router := server.NewRouter(ctx, metricHandler, pingHandler, cfg.Key)
 
 	// Init server
 	server := server.NewServer(ctx, cfg, router)

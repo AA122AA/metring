@@ -2,11 +2,14 @@ package repository
 
 import (
 	"context"
+	"maps"
+	"sync"
 
 	"github.com/AA122AA/metring/internal/server/domain"
 )
 
 type MemStorage struct {
+	mu     sync.RWMutex
 	Values map[string]*domain.Metrics
 }
 
@@ -18,13 +21,14 @@ func NewMemStorage() *MemStorage {
 
 func (ms *MemStorage) GetAll(ctx context.Context) (map[string]*domain.Metrics, error) {
 	if len(ms.Values) != 0 {
-		return ms.Values, nil
+		return maps.Clone(ms.Values), nil
 	}
-	// return nil, fmt.Errorf("no metrics")
 	return nil, NewEmptyRepoError(nil)
 }
 
 func (ms *MemStorage) Get(ctx context.Context, name string) (*domain.Metrics, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
 	if v, ok := ms.Values[name]; ok {
 		return v, nil
 	}
@@ -33,27 +37,35 @@ func (ms *MemStorage) Get(ctx context.Context, name string) (*domain.Metrics, er
 }
 
 func (ms *MemStorage) Write(ctx context.Context, name string, value *domain.Metrics) error {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
 	ms.Values[name] = value
 	return nil
 }
 
 func (ms *MemStorage) WriteMetrics(ctx context.Context, values []*domain.Metrics) error {
+	ms.mu.Lock()
 	for _, v := range values {
 		ms.Values[v.ID] = v
 	}
+	ms.mu.Unlock()
 
 	return nil
 }
 
 func (ms *MemStorage) Update(ctx context.Context, value *domain.Metrics) error {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
 	ms.Values[value.ID] = value
 	return nil
 }
 
 func (ms *MemStorage) UpdateMetrics(ctx context.Context, values []*domain.Metrics) error {
+	ms.mu.Lock()
 	for _, v := range values {
 		ms.Values[v.ID] = v
 	}
+	ms.mu.Unlock()
 
 	return nil
 }

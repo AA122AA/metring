@@ -66,11 +66,13 @@ func (s *Server) Run(ctx context.Context) error {
 	return s.srv.Serve(listener)
 }
 
-func NewRouter(ctx context.Context, h metricsHandler, p pingHandler) *chi.Mux {
+func NewRouter(ctx context.Context, h metricsHandler, p pingHandler, key string) *chi.Mux {
 	router := chi.NewRouter()
 	router.Get("/", middleware.Wrap(
 		middleware.Wrap(
-			http.HandlerFunc(h.All),
+			middleware.Wrap(
+				http.HandlerFunc(h.All),
+				middleware.WithHashHeader(zctx.From(ctx).Named("HashHeader"), key)),
 			middleware.WithLogger(zctx.From(ctx).Named("GetAll"))),
 		middleware.WithCompression()),
 	)
@@ -81,7 +83,9 @@ func NewRouter(ctx context.Context, h metricsHandler, p pingHandler) *chi.Mux {
 	router.Route("/value/", func(r chi.Router) {
 		r.Post("/", middleware.Wrap(
 			middleware.Wrap(
-				http.HandlerFunc(h.GetJSON),
+				middleware.Wrap(
+					http.HandlerFunc(h.GetJSON),
+					middleware.WithHashHeader(zctx.From(ctx).Named("HashHeader"), key)),
 				middleware.WithLogger(zctx.From(ctx).Named("GetValueJSON"))),
 			middleware.WithCompression()),
 		)
@@ -95,8 +99,10 @@ func NewRouter(ctx context.Context, h metricsHandler, p pingHandler) *chi.Mux {
 	router.Route("/update", func(r chi.Router) {
 		r.Post("/", middleware.Wrap(
 			middleware.Wrap(
+				// middleware.Wrap(
 				http.HandlerFunc(h.UpdateJSON),
 				middleware.WithLogger(zctx.From(ctx).Named("UpdateValueJSON"))),
+			// middleware.WithHashCheck(zctx.From(ctx).Named("With hash"), key)),
 			middleware.WithCompression()),
 		)
 		r.Post("/{mType}/{mName}/{value}", middleware.Wrap(
@@ -108,11 +114,14 @@ func NewRouter(ctx context.Context, h metricsHandler, p pingHandler) *chi.Mux {
 	})
 
 	router.Route("/updates", func(r chi.Router) {
-		r.Post("/", middleware.Wrap(
+		r.Post("/",
 			middleware.Wrap(
-				http.HandlerFunc(h.Updates),
-				middleware.WithLogger(zctx.From(ctx).Named("Updates"))),
-			middleware.WithCompression()),
+				middleware.Wrap(
+					middleware.Wrap(
+						http.HandlerFunc(h.Updates),
+						middleware.WithLogger(zctx.From(ctx).Named("Updates"))),
+					middleware.WithHashCheck(zctx.From(ctx).Named("With hash"), key)),
+				middleware.WithCompression()),
 		)
 	})
 

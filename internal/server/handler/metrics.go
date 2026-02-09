@@ -231,6 +231,7 @@ func (h MetricsHandler) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 func (h MetricsHandler) Updates(w http.ResponseWriter, r *http.Request) {
 	metrics := make([]*domain.MetricsJSON, 0, 20)
 	defer r.Body.Close()
+
 	err := json.NewDecoder(r.Body).Decode(&metrics)
 	if err != nil {
 		http.Error(w, "Что-то пошло не так", http.StatusInternalServerError)
