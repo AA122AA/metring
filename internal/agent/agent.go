@@ -63,7 +63,10 @@ func (ma *MetricAgent) Run(ctx context.Context, wg *sync.WaitGroup) <-chan map[s
 		defer wg.Done()
 
 		<-ctx.Done()
-		for {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+
+		for range ticker.C {
 			_, psClosed := <-psResults
 			_, runClosed := <-runResults
 			if !psClosed && !runClosed {
@@ -71,7 +74,6 @@ func (ma *MetricAgent) Run(ctx context.Context, wg *sync.WaitGroup) <-chan map[s
 				close(results)
 				break
 			}
-			time.Sleep(100 * time.Millisecond)
 		}
 	}()
 
